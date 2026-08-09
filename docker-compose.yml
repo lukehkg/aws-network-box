@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  tracer-app:
+    build: .
+    container_name: realtime_tracer
+    ports:
+      - "3000:3000"
+    cap_add:
+      - NET_RAW # Required for sending low-level ICMP ping packets inside Docker
+    restart: unless-stopped
