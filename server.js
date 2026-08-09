@@ -11,7 +11,13 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files (index.html, styles.css, app.js) directly from the repository root
+app.use(express.static(__dirname));
+
+// Fallback route to explicitly serve index.html at root "/"
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const tracerouteCache = {};
 
