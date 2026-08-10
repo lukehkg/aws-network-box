@@ -8,9 +8,13 @@ const os = require('os');
 const { exec } = require('child_process');
 const net = require('net');
 const dns = require('dns');
+const analysisWorker = require('./analysis-worker.js');
 const app = express();
 // Enable reverse proxy support (Crucial for Coolify / Traefik / Nginx)
 app.set('trust proxy', true);
+
+// In-memory store for advanced analysis history
+const analysisHistory = [];
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -238,6 +242,36 @@ wss.on('connection', (ws, req) => {
         runTraceroute(clean);
       } else if (data.type === 'RUN_PORT_SCAN') {
         runPortScan(clientWanIp, broadcastCurrent, data.data?.range);
+      } else if (data.type === 'RUN_ADVANCED_SCAN' && data.domain) {
+        const cleanDomain = sanitizeHost(data.domain);
+        
+        Promise.all([
+          analysisWorker.runSubdomainSearch(cleanDomain),
+          analysisWorker.runMxLookup(cleanDomain),
+          analysisWorker.getSslInfo(cleanDomain)
+        ]).then(([subdomainResult, mxResult, sslResult]) => {
+          broadcastCurrent({ type: 'SUBDOMAIN_RESULT', data: subdomainResult });
+          broadcastCurrent({ type: 'MX_RESULT', data: mxResult });
+          broadcastCurrent({ type: 'SSL_RESULT', data: sslResult });
+
+          // Store the simplified result in history
+          if (!subdomainResult.error || !mxResult.error || !sslResult.error) {
+              analysisHistory.push({
+                timestamp: new Date().toISOString(),
+                domain: cleanDomain,
+                subdomain_count: subdomainResult.count || 0,
+                subdomains: subdomainResult.subdomains?.join(', ') || 'N/A',
+                mx_records: mxResult.records?.map(r => r.exchange).join(', ') || 'N/A',
+                ssl_issuer: sslResult.issuer || 'N/A',
+                ssl_expiry: sslResult.valid_to || 'N/A'
+              });
+            }
+          })
+          .catch(err => {
+            broadcastCurrent({ type: 'ADVANCED_SCAN_ERROR', data: { error: err.message } });
+          });
+      } else if (data.type === 'GET_ANALYSIS_HISTORY') {
+        broadcastCurrent({ type: 'ANALYSIS_HISTORY_DATA', data: analysisHistory });
       }
     } catch (e) {
       console.error('Payload error:', e);

@@ -393,6 +393,80 @@
       }
     }
 
+    /* Advanced Analysis Box */
+    .advanced-card {
+      background: rgba(19, 26, 38, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      margin-top: 12px;
+    }
+    .advanced-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .advanced-input-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .advanced-input {
+      flex-grow: 1;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 0.7rem;
+      padding: 6px 8px;
+    }
+    .advanced-btn {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    .advanced-btn:disabled {
+      background: var(--border);
+      cursor: not-allowed;
+    }
+    .advanced-results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px;
+    }
+    .result-box {
+      padding: 6px;
+      font-size: 0.6rem;
+      color: var(--text-muted);
+    }
+    .result-box .result-title { 
+      font-weight: 700; margin-bottom: 4px; color: var(--text);
+    }
+    .result-box .result-content { 
+      font-family: monospace; color: var(--text-muted); white-space: pre-wrap; word-break: break-all;
+      max-height: 120px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.2);
+      padding: 4px 6px;
+      border-radius: 3px;
+    }
+
+    .export-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -578,6 +652,32 @@
       </div>
     </div>
 
+    <!-- ADVANCED ANALYSIS BOX -->
+    <div class="advanced-card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="advanced-header">Domain Analysis</div>
+        <button class="export-btn" onclick="downloadHistoryJSON()">Export History (JSON)</button>
+      </div>
+      <div class="advanced-input-group">
+        <input type="text" id="advanced-domain-input" class="advanced-input" placeholder="Enter domain (e.g., google.com)">
+        <button id="advanced-scan-btn" class="advanced-btn" onclick="triggerAdvancedScan()">Analyze</button>
+      </div>
+      <div class="advanced-results-grid">
+        <div class="result-box">
+          <div class="result-title">🔎 Subdomain Discovery</div>
+          <div class="result-content" id="subdomain-results">Enter a domain to scan.</div>
+        </div>
+        <div class="result-box">
+          <div class="result-title">✉️ Email Service Provider</div>
+          <div class="result-content" id="mx-results">Enter a domain to scan.</div>
+        </div>
+        <div class="result-box">
+          <div class="result-title">🔒 SSL Certificate</div>
+          <div class="result-content" id="ssl-results">Enter a domain to scan.</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -633,6 +733,73 @@
                 btnEl.disabled = false;
               }
             });
+          }
+
+          if (data.type === 'SUBDOMAIN_RESULT') {
+            const el = document.getElementById('subdomain-results');
+            if (el) {
+              if (data.data.error) {
+                el.innerText = `Error: ${data.data.error}`;
+              } else {
+                el.innerText = `Found ${data.data.count} subdomains:\n\n${data.data.subdomains.join('\n')}`;
+              }
+            }
+            const btn = document.getElementById('advanced-scan-btn');
+            // Re-enable button after all results are likely back
+            setTimeout(() => { if (btn) btn.disabled = false; }, 1000);
+          }
+
+          if (data.type === 'ADVANCED_SCAN_ERROR') {
+            const subdomainEl = document.getElementById('subdomain-results');
+            const mxEl = document.getElementById('mx-results');
+            const sslEl = document.getElementById('ssl-results');
+            if (subdomainEl) subdomainEl.innerText = `Error: ${data.data.error}`;
+            if (mxEl) mxEl.innerText = `Error: ${data.data.error}`;
+            if (sslEl) sslEl.innerText = `Error: ${data.data.error}`;
+            const btn = document.getElementById('advanced-scan-btn');
+            if (btn) btn.disabled = false;
+          }
+
+          if (data.type === 'MX_RESULT') {
+            const el = document.getElementById('mx-results');
+            const btn = document.getElementById('advanced-scan-btn');
+            if (el) {
+              if (data.data.error) {
+                el.innerText = `Error: ${data.data.error}`;
+              } else {
+                const recordsText = data.data.records.map(r => `[${r.priority}] ${r.exchange}`).join('\n');
+                const provider = inferEmailProvider(recordsText);
+                el.innerText = `${recordsText}\n\nProvider: ${provider}`;
+              }
+            }
+          }
+
+          if (data.type === 'SSL_RESULT') {
+            const el = document.getElementById('ssl-results');
+            if (el) {
+              if (data.data.error || !data.data.found) {
+                el.innerText = data.data.error || 'No SSL certificate found.';
+              } else {
+                el.innerText = `Issuer: ${data.data.issuer}\nExpires: ${new Date(data.data.valid_to).toLocaleDateString()}`;
+              }
+            }
+          }
+
+          if (data.type === 'ANALYSIS_HISTORY_DATA') {
+            const historyArray = data.data;
+            if (!historyArray || historyArray.length === 0) {
+              alert("No analysis history to export.");
+              return;
+            }
+            // Convert the array of objects to a JSON string
+            const jsonString = JSON.stringify(historyArray, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "analysis_history.json");
+            link.click();
+            URL.revokeObjectURL(url); // Clean up
           }
 
           if (data.rank1) updateCaseUI('c1', data.rank1, data.gatewayIp);
@@ -772,6 +939,45 @@
         const targetLabel = document.getElementById(`${caseKey}-target-label`);
         if (targetLabel) targetLabel.innerText = caseData.target;
       }
+    }
+
+    function downloadHistoryJSON() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'GET_ANALYSIS_HISTORY' }));
+      } else {
+        alert("Connection to server is not active. Please refresh the page.");
+      }
+    }
+
+    function triggerAdvancedScan() {
+      const inputEl = document.getElementById('advanced-domain-input');
+      const domain = inputEl.value.trim();
+      if (!domain) {
+        alert('Please enter a domain.');
+        return;
+      }
+
+      const subdomainEl = document.getElementById('subdomain-results');
+      const mxEl = document.getElementById('mx-results');
+      const sslEl = document.getElementById('ssl-results');
+      const btn = document.getElementById('advanced-scan-btn');
+
+      if (subdomainEl) subdomainEl.innerText = 'Searching...';
+      if (mxEl) mxEl.innerText = 'Looking up...';
+      if (sslEl) sslEl.innerText = 'Checking...';
+      if (btn) btn.disabled = true;
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RUN_ADVANCED_SCAN', domain: domain }));
+      }
+    }
+
+    function inferEmailProvider(mxRecordsText) {
+      if (mxRecordsText.includes('google.com') || mxRecordsText.includes('googlemail.com')) return 'Google Workspace';
+      if (mxRecordsText.includes('outlook.com') || mxRecordsText.includes('office365.com')) return 'Microsoft 365';
+      if (mxRecordsText.includes('zoho.com')) return 'Zoho Mail';
+      if (mxRecordsText.includes('protonmail.ch')) return 'ProtonMail';
+      return 'Unknown / Self-hosted';
     }
 
     function triggerPortScan(caseKey) {
