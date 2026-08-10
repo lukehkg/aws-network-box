@@ -1,313 +1,782 @@
-const express = require('express');
-const http = require('http');
-const https = require('https');
-const WebSocket = require('ws');
-const ping = require('ping');
-const path = require('path');
-const os = require('os');
-const { exec } = require('child_process');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Network Check & WAN Inspector</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card-bg: #131a26;
+      --border: #222f43;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #8b5cf6;
+      --cyan: #06b6d4;
+      --text: #ffffff;
+      --text-muted: #8e9bb0;
+    }
 
-const app = express();
+    * { box-sizing: border-box; }
 
-// Enable reverse proxy support (Crucial for Coolify / Traefik / Nginx)
-app.set('trust proxy', true);
+    body {
+      margin: 0;
+      padding: 10px 4px;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
 
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+    }
 
-// Helper to extract clean WAN IP
-function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.headers['cf-connecting-ip'] || 
-         req.headers['x-real-ip'] || 
-         req.ip || 
-         req.socket.remoteAddress || 
-         'Unknown';
-}
+    .header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
 
-// Native CORS Middleware
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const isAllowedOrigin = origin && (
-    origin === 'https://it.ai-daily.uk' || 
-    /^https:\/\/[a-zA-Z0-9-]+\.ai-daily\.uk$/.test(origin)
-  );
+    .header h1 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
 
-  if (isAllowedOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
+    .topology-flow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(19, 26, 38, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+    .topo-node {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+    .topo-icon { font-size: 11px; line-height: 1; }
+    .topo-label {
+      font-size: 8.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
-});
+    .topo-arrow { font-size: 8px; color: var(--blue); opacity: 0.8; }
 
-// Direct REST API route for IP retrieval
-app.get('/api/ip', (req, res) => {
-  res.json({ ip: getClientIp(req) });
-});
+    .case-card {
+      background: rgba(19, 26, 38, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 6px;
+      margin-top: 8px;
+    }
 
-// Serve static files
-app.use(express.static(__dirname));
+    .case-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+    .case-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
 
-const tracerouteCache = {};
+    .grade-badge {
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 9px;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+    }
 
-let speedCache = {
-  downloadSpeed: 0,
-  uploadSpeed: 0,
-  isTesting: false,
-  status: 'Idle'
-};
+    .grade-a { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid var(--green); }
+    .grade-b { background: rgba(59, 130, 246, 0.2); color: var(--blue); border: 1px solid var(--blue); }
+    .grade-c { background: rgba(245, 158, 11, 0.2); color: var(--amber); border: 1px solid var(--amber); }
+    .grade-d { background: rgba(139, 92, 246, 0.2); color: var(--purple); border: 1px solid var(--purple); }
+    .grade-e { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid var(--red); }
 
-function runOnDemandSpeedTest(broadcast) {
-  if (speedCache.isTesting) return;
-  speedCache.isTesting = true;
-  speedCache.status = 'Testing...';
+    .summary-tip {
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
 
-  broadcast({ type: 'SPEED_TEST_STATUS', data: speedCache });
+    .custom-dropdown {
+      position: relative;
+      user-select: none;
+    }
 
-  const CONCURRENCY = 4;
-  const DURATION_MS = 4000;
-  const startTime = Date.now();
-  let totalBytesReceived = 0;
+    .dropdown-trigger {
+      background: #0f172a;
+      color: var(--blue);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      height: 22px;
+    }
 
-  const downloadStream = () => new Promise((resolve) => {
-    const req = https.get('https://speed.cloudflare.com/__down?bytes=25000000', (res) => {
-      res.on('data', (chunk) => {
-        totalBytesReceived += chunk.length;
-        if (Date.now() - startTime >= DURATION_MS) {
-          req.destroy();
+    .dropdown-trigger-text {
+      max-width: 90px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .arrow { font-size: 7px; color: var(--text-muted); }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 25px;
+      right: 0;
+      width: 155px;
+      background: #0d131f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.7);
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 2px 0;
+    }
+
+    .dropdown-menu.show { display: block; }
+
+    .dropdown-group-title {
+      font-size: 7.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      padding: 4px 6px 1px;
+      text-transform: uppercase;
+    }
+
+    .dropdown-item {
+      font-size: 9.5px;
+      font-weight: 600;
+      padding: 4px 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text);
+    }
+
+    .dropdown-item:hover { background: var(--blue); color: #fff; }
+    .dropdown-item.custom-top {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--blue);
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+    }
+
+    .pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2px;
+    }
+
+    .box {
+      flex: 1 1 0px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 4px;
+      min-width: 0;
+      position: relative;
+    }
+
+    .box.wan-box {
+      border-color: rgba(6, 182, 212, 0.4);
+      background: rgba(19, 26, 38, 0.95);
+    }
+
+    .box-header-icon {
+      font-size: 13px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2px;
+    }
+
+    .box-title-tag {
+      font-size: 7px;
+      font-weight: 800;
+      padding: 1px 3px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--cyan);
+    }
+
+    .sub {
+      font-size: 7.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    .sub.highlight-ip {
+      color: var(--cyan);
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    /* Embedded Router Speed & Button Container */
+    .router-speed-metrics {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 7.5px;
+      font-weight: 800;
+      margin-top: 3px;
+      padding: 2px 3px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 4px;
+      gap: 2px;
+    }
+
+    .speed-rates {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .speed-dl { color: var(--green); }
+    .speed-ul { color: var(--cyan); }
+
+    .btn-speedtest {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 7.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-speedtest:disabled {
+      background: var(--border);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    .link-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .link-line { width: 100%; height: 2px; background: var(--border); margin: 1px 0; }
+
+    .link-badge {
+      font-size: 7px;
+      font-weight: 700;
+      padding: 1px 2px;
+      border-radius: 3px;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .link-val { font-size: 7.5px; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
+    .link-subval { font-size: 6.5px; font-weight: 700; color: var(--blue); }
+
+    .bg-green { background: rgba(16, 185, 129, 0.25); color: var(--green); border: 1px solid var(--green); }
+    .bg-yellow { background: rgba(245, 158, 11, 0.25); color: var(--amber); border: 1px solid var(--amber); }
+    .bg-red { background: rgba(239, 68, 68, 0.25); color: var(--red); border: 1px solid var(--red); }
+
+    .status-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      margin-top: 2px;
+    }
+
+    .middle-ping-text { color: var(--text-muted); font-size: 7.5px; line-height: 1.1; }
+    .status-good { color: var(--green); font-weight: 800; font-size: 8.5px; }
+
+    .gauge {
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+
+    .fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
+
+    .power-bar-flash {
+      background: var(--green) !important;
+      width: 100% !important;
+      animation: power-pulse 1.4s infinite ease-in-out;
+    }
+
+    @keyframes power-pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(16, 185, 129, 0.9); }
+      50% { opacity: 0.3; box-shadow: 0 0 1px rgba(16, 185, 129, 0.2); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1>Network Check</h1>
+      <div class="topology-flow">
+        <div class="topo-node"><span class="topo-icon">📱</span><span class="topo-label">Mobile</span></div>
+        <div class="topo-arrow">➔</div>
+        <div class="topo-node"><span class="topo-icon">🛜</span><span class="topo-label">Router</span></div>
+        <div class="topo-arrow">➔</div>
+        <div class="topo-node"><span class="topo-icon">🛰️</span><span class="topo-label">WAN / ISP</span></div>
+        <div class="topo-arrow">➔</div>
+        <div class="topo-node"><span class="topo-icon">🌐</span><span class="topo-label">Internet</span></div>
+      </div>
+    </div>
+
+    <!-- CASE 1 -->
+    <div class="case-card" id="card-c1">
+      <div class="case-header">
+        <div class="case-badge">
+          <span class="grade-badge grade-a" id="c1-grade-badge">GRADE A</span>
+          <span class="summary-tip" id="c1-summary-tip">Optimal Direct Path</span>
+        </div>
+      </div>
+      <div class="pipeline">
+        <!-- 1. Mobile -->
+        <div class="box">
+          <div class="box-header-icon">📱</div>
+          <div class="sub">Mobile Device</div>
+          <div class="status-row"><span class="status-good">Good</span></div>
+          <div class="gauge"><div class="fill power-bar-flash"></div></div>
+        </div>
+
+        <div class="link-connector">
+          <span class="link-badge bg-green" id="c1-l1-badge">Wi-Fi</span>
+          <div class="link-line"></div>
+          <span class="link-val" id="c1-l1-val">--</span>
+        </div>
+
+        <!-- 2. Local Router -->
+        <div class="box">
+          <div class="box-header-icon">🛜</div>
+          <div class="sub" id="c1-router-sub">172.18.0.1</div>
+          <div class="router-speed-metrics">
+            <div class="speed-rates">
+              <span class="speed-dl" id="c1-speed-dl">⬇ --</span>
+              <span class="speed-ul" id="c1-speed-ul">⬆ --</span>
+            </div>
+            <button class="btn-speedtest" onclick="triggerSpeedTest()">⚡ Test</button>
+          </div>
+          <div class="status-row"><span class="middle-ping-text" id="c1-b2-val">0.4ms</span></div>
+          <div class="gauge"><div class="fill" id="c1-b2-bar" style="width: 100%; background-color: var(--green);"></div></div>
+        </div>
+
+        <div class="link-connector">
+          <span class="link-badge bg-green">LAN</span>
+          <div class="link-line"></div>
+          <span class="link-val">--</span>
+        </div>
+
+        <!-- 3. WAN Detect Box (NEW FEATURE) -->
+        <div class="box wan-box">
+          <div class="box-header-icon">
+            <span>🛰️</span>
+            <span class="box-title-tag" id="c1-wan-country">WAN</span>
+          </div>
+          <div class="sub highlight-ip" id="c1-wan-ip">Fetching...</div>
+          <div class="sub" id="c1-wan-isp" title="Detected ISP">ISP: Detecting...</div>
+          <div class="gauge"><div class="fill" id="c1-wan-bar" style="width: 100%; background-color: var(--cyan);"></div></div>
+        </div>
+
+        <div class="link-connector">
+          <span class="link-badge bg-green" id="c1-l2-badge">WAN ISP</span>
+          <div class="link-line"></div>
+          <span class="link-val" id="c1-l2-val">--</span>
+          <span class="link-subval" id="c1-hops-val">-- Hops</span>
+        </div>
+
+        <!-- 4. Internet Target -->
+        <div class="box">
+          <div class="box-header-icon">🌐</div>
+          <div class="sub">google.com</div>
+          <div class="status-row"><span class="middle-ping-text" id="c1-b3-val">--</span></div>
+          <div class="gauge"><div class="fill" id="c1-b3-bar" style="width: 0%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CASE 2 -->
+    <div class="case-card" id="card-c2">
+      <div class="case-header">
+        <div class="case-badge">
+          <span class="grade-badge grade-b" id="c2-grade-badge">GRADE B</span>
+          <span class="summary-tip" id="c2-summary-tip">Testing Target...</span>
+        </div>
+
+        <div class="custom-dropdown" id="region-dropdown">
+          <div class="dropdown-trigger" onclick="toggleDropdown()">
+            <span class="dropdown-trigger-text" id="selected-label">🇬🇧 BBC</span>
+            <span class="arrow">▼</span>
+          </div>
+          <div class="dropdown-menu" id="dropdown-menu">
+            <div class="dropdown-item custom-top" onclick="selectOption('MANUAL_INPUT', '✏️ Custom Host')">
+              ✏️ Custom Host / IP...
+            </div>
+            <div class="dropdown-group-title">🇬🇧 UK & 🇪🇺 EU</div>
+            <div class="dropdown-item" onclick="selectOption('bbc.co.uk', '🇬🇧 BBC')">🇬🇧 BBC</div>
+            <div class="dropdown-item" onclick="selectOption('uk.pool.ntp.org', '🇬🇧 NTP Pool')">🇬🇧 NTP Pool</div>
+            <div class="dropdown-item" onclick="selectOption('hetzner.de', '🇩🇪 Hetzner')">🇩🇪 Hetzner</div>
+            <div class="dropdown-item" onclick="selectOption('ovh.fr', '🇫🇷 OVH')">🇫🇷 OVH</div>
+            <div class="dropdown-group-title">🇺🇸 US</div>
+            <div class="dropdown-item" onclick="selectOption('cloudflare.com', '🇺🇸 Cloudflare')">🇺🇸 Cloudflare</div>
+            <div class="dropdown-item" onclick="selectOption('8.8.8.8', '🇺🇸 Google DNS')">🇺🇸 Google DNS</div>
+            <div class="dropdown-group-title">🌏 Asia</div>
+            <div class="dropdown-item" onclick="selectOption('hinet.net', '🇹🇼 HiNet')">🇹🇼 HiNet</div>
+            <div class="dropdown-item" onclick="selectOption('hkix.net', '🇭🇰 HKIX')">🇭🇰 HKIX</div>
+            <div class="dropdown-item" onclick="selectOption('baidu.com', '🇨🇳 Baidu')">🇨🇳 Baidu</div>
+            <div class="dropdown-item" onclick="selectOption('line.me', '🇯🇵 Line')">🇯🇵 Line</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline">
+        <!-- 1. Mobile -->
+        <div class="box">
+          <div class="box-header-icon">📱</div>
+          <div class="sub">Mobile Device</div>
+          <div class="status-row"><span class="status-good">Good</span></div>
+          <div class="gauge"><div class="fill power-bar-flash"></div></div>
+        </div>
+
+        <div class="link-connector">
+          <span class="link-badge bg-green" id="c2-l1-badge">Wi-Fi</span>
+          <div class="link-line"></div>
+          <span class="link-val" id="c2-l1-val">--</span>
+        </div>
+
+        <!-- 2. Local Router -->
+        <div class="box">
+          <div class="box-header-icon">🛜</div>
+          <div class="sub" id="c2-router-sub">172.18.0.1</div>
+          <div class="router-speed-metrics">
+            <div class="speed-rates">
+              <span class="speed-dl" id="c2-speed-dl">⬇ --</span>
+              <span class="speed-ul" id="c2-speed-ul">⬆ --</span>
+            </div>
+            <button class="btn-speedtest" onclick="triggerSpeedTest()">⚡ Test</button>
+          </div>
+          <div class="status-row"><span class="middle-ping-text" id="c2-b2-val">0.4ms</span></div>
+          <div class="gauge"><div class="fill" id="c2-b2-bar" style="width: 100%; background-color: var(--green);"></div></div>
+        </div>
+
+        <div class="link-connector">
+          <span class="link-badge bg-green">LAN</span>
+          <div class="link-line"></div>
+          <span class="link-val">--</span>
+        </div>
+
+        <!-- 3. WAN Detect Box (NEW FEATURE) -->
+        <div class="box wan-box">
+          <div class="box-header-icon">
+            <span>🛰️</span>
+            <span class="box-title-tag" id="c2-wan-country">WAN</span>
+          </div>
+          <div class="sub highlight-ip" id="c2-wan-ip">Fetching...</div>
+          <div class="sub" id="c2-wan-isp" title="Detected ISP">ISP: Detecting...</div>
+          <div class="gauge"><div class="fill" id="c2-wan-bar" style="width: 100%; background-color: var(--cyan);"></div></div>
+        </div>
+
+        <div class="link-connector">
+          <span class="link-badge bg-green" id="c2-l2-badge">WAN ISP</span>
+          <div class="link-line"></div>
+          <span class="link-val" id="c2-l2-val">--</span>
+          <span class="link-subval" id="c2-hops-val">-- Hops</span>
+        </div>
+
+        <!-- 4. Target Host -->
+        <div class="box">
+          <div class="box-header-icon">🌐</div>
+          <div class="sub" id="c2-target-label">bbc.co.uk</div>
+          <div class="status-row"><span class="middle-ping-text" id="c2-b3-val">--</span></div>
+          <div class="gauge"><div class="fill" id="c2-b3-bar" style="width: 0%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let ws;
+    let detectedGatewayIp = "172.18.0.1";
+    let detectedPublicIp = "--";
+    let detectedIsp = "Detecting...";
+    let detectedCountry = "WAN";
+
+    function initWebSocket() {
+      if (window.location.protocol === 'file:') {
+        console.warn('Running locally via file:// protocol. Fetching client-side WAN details...');
+        fetchClientWanInfo();
+        return;
+      }
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.gatewayIp) detectedGatewayIp = data.gatewayIp;
+
+          // WAN Detection payload from WebSocket backend
+          if (data.wan || data.publicIp) {
+            updateWanUI(data.wan || { publicIp: data.publicIp, isp: data.isp, country: data.country });
+          }
+
+          if (data.bandwidth) {
+            const c1Dl = document.getElementById('c1-speed-dl');
+            const c1Ul = document.getElementById('c1-speed-ul');
+            const c2Dl = document.getElementById('c2-speed-dl');
+            const c2Ul = document.getElementById('c2-speed-ul');
+
+            const dlFormatted = `⬇ ${formatSpeedNum(data.bandwidth.downloadSpeed)}`;
+            const ulFormatted = `⬆ ${formatSpeedNum(data.bandwidth.uploadSpeed)}`;
+
+            if (c1Dl) c1Dl.innerText = dlFormatted;
+            if (c1Ul) c1Ul.innerText = ulFormatted;
+            if (c2Dl) c2Dl.innerText = dlFormatted;
+            if (c2Ul) c2Ul.innerText = ulFormatted;
+
+            const btns = document.querySelectorAll('.btn-speedtest');
+            btns.forEach(btn => {
+              btn.disabled = !!data.bandwidth.isTesting;
+              btn.innerText = data.bandwidth.isTesting ? "⏳ Testing..." : "⚡ Test";
+            });
+          }
+
+          if (data.rank1) updateCaseUI('c1', data.rank1, data.gatewayIp);
+          if (data.rank2) updateCaseUI('c2', data.rank2, data.gatewayIp);
+        } catch (e) {
+          console.error("WS message parse error:", e);
         }
-      });
-      res.on('end', resolve);
-      res.on('error', resolve);
-    });
+      };
 
-    req.on('error', resolve);
-    req.setTimeout(DURATION_MS, () => {
-      req.destroy();
-      resolve();
-    });
-  });
-
-  const streamPromises = [];
-  for (let i = 0; i < CONCURRENCY; i++) {
-    streamPromises.push(downloadStream());
-  }
-
-  Promise.all(streamPromises).then(() => {
-    const elapsedSec = (Date.now() - startTime) / 1000;
-    if (elapsedSec > 0 && totalBytesReceived > 0) {
-      speedCache.downloadSpeed = parseFloat(((totalBytesReceived * 8) / (elapsedSec * 1000000)).toFixed(1));
+      ws.onclose = () => {
+        setTimeout(initWebSocket, 3000);
+      };
     }
 
-    runUploadTest(broadcast);
-  });
-}
-
-function runUploadTest(broadcast) {
-  const startTime = Date.now();
-  const dummyData = Buffer.alloc(1024 * 1024, 'a');
-
-  const options = {
-    hostname: 'speed.cloudflare.com',
-    port: 443,
-    path: '/__up',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Length': dummyData.length
-    }
-  };
-
-  const req = https.request(options, (res) => {
-    res.on('data', () => {});
-    res.on('end', () => {
-      const durationSec = (Date.now() - startTime) / 1000;
-      if (durationSec > 0) {
-        speedCache.uploadSpeed = parseFloat(((dummyData.length * 8) / (durationSec * 1000000)).toFixed(1));
-      }
-      finishSpeedTest(broadcast);
-    });
-  });
-
-  req.on('error', () => {
-    speedCache.uploadSpeed = parseFloat((speedCache.downloadSpeed * 0.25).toFixed(1));
-    finishSpeedTest(broadcast);
-  });
-
-  req.write(dummyData);
-  req.end();
-}
-
-function finishSpeedTest(broadcast) {
-  speedCache.isTesting = false;
-  speedCache.status = 'Complete';
-  broadcast({ type: 'SPEED_TEST_STATUS', data: speedCache });
-}
-
-function sanitizeHost(input) {
-  if (!input) return 'bbc.co.uk';
-  let clean = input.trim().toLowerCase();
-  clean = clean.replace(/^https?:\/\//, '');
-  clean = clean.split('/')[0];
-  clean = clean.split('?')[0];
-  clean = clean.split(':')[0];
-  return clean || 'bbc.co.uk';
-}
-
-function getLocalGatewayInfo() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const net of interfaces[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        const parts = net.address.split('.');
-        parts[3] = '1';
-        return { ip: parts.join('.'), interfaceName: name };
-      }
-    }
-  }
-  return { ip: '192.168.1.1', interfaceName: 'LAN' };
-}
-
-function runTraceroute(host) {
-  if (!host) return;
-  const target = sanitizeHost(host);
-  const isWin = process.platform === 'win32';
-  const cmd = isWin 
-    ? `tracert -d -h 15 -w 500 ${target}` 
-    : `traceroute -n -m 15 -w 1 ${target}`;
-
-  exec(cmd, (error, stdout) => {
-    if (error || !stdout) {
-      tracerouteCache[target] = Math.floor(6 + Math.random() * 5);
-      return;
-    }
-
-    const lines = stdout.split('\n');
-    let maxHop = 0;
-
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      const match = trimmed.match(/^(\d+)\s+/);
-      if (match) {
-        const hopNum = parseInt(match[1], 10);
-        if (hopNum > maxHop) maxHop = hopNum;
-      }
-    });
-
-    tracerouteCache[target] = maxHop > 0 ? maxHop : Math.floor(7 + Math.random() * 4);
-  });
-}
-
-wss.on('connection', (ws, req) => {
-  // Capture client's public WAN IP address on connection
-  const clientWanIp = getClientIp(req);
-
-  let targets = {
-    rank1: 'google.com',
-    rank2: 'bbc.co.uk'
-  };
-
-  Object.values(targets).forEach(runTraceroute);
-  const gatewayInfo = getLocalGatewayInfo();
-
-  const broadcastCurrent = (msgObj) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msgObj));
-    }
-  };
-
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      if (data.type === 'SET_TARGET_RANK2' && data.target) {
-        const clean = sanitizeHost(data.target);
-        targets.rank2 = clean;
-        runTraceroute(clean);
-      } else if (data.type === 'RUN_SPEED_TEST') {
-        runOnDemandSpeedTest(broadcastCurrent);
-      }
-    } catch (e) {
-      console.error('Payload error:', e);
-    }
-  });
-
-  const probeTarget = async (host) => {
-    const cleanHost = sanitizeHost(host);
-    try {
-      const res = await ping.promise.probe(cleanHost, { timeout: 2 });
-      if (res.alive && !isNaN(parseFloat(res.time))) {
-        return parseFloat(res.time);
-      }
-    } catch (e) {}
-    return Math.round((0.8 + Math.random() * 2.5) * 10) / 10;
-  };
-
-  const timer = setInterval(async () => {
-    try {
-      const wifiModes = [
-        { type: '5G Wi-Fi', ping: (0.4 + Math.random() * 0.8).toFixed(1), state: 'green' },
-        { type: '2.4G Wi-Fi', ping: (2.1 + Math.random() * 3.5).toFixed(1), state: 'green' },
-        { type: 'LAN Cable', ping: (0.2 + Math.random() * 0.3).toFixed(1), state: 'green' }
-      ];
-
-      const mode1 = wifiModes[Math.floor(Math.random() * wifiModes.length)];
-      const mode2 = wifiModes[Math.floor(Math.random() * wifiModes.length)];
-      const routerProc = (0.1 + Math.random() * 0.3).toFixed(1);
-
-      const p1 = await probeTarget(targets.rank1);
-      const p2 = await probeTarget(targets.rank2);
-
-      broadcastCurrent({
-        clientIp: clientWanIp, // Broadcast WAN IP to client
-        gatewayIp: gatewayInfo.ip,
-        bandwidth: speedCache,
-        rank1: { 
-          link1: mode1, 
-          b2: routerProc, 
-          b3: p1, 
-          hops: tracerouteCache[targets.rank1] || 6, 
-          target: targets.rank1
-        },
-        rank2: { 
-          link1: mode2, 
-          b2: routerProc, 
-          b3: p2, 
-          hops: tracerouteCache[targets.rank2] || 8, 
-          target: targets.rank2
+    // Client-side fallback to automatically detect Public IP & ISP if backend WS hasn't pushed WAN info
+    async function fetchClientWanInfo() {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        if (!res.ok) throw new Error('Network response failed');
+        const data = await res.json();
+        updateWanUI({
+          publicIp: data.ip,
+          isp: data.org || data.isp || 'Unknown ISP',
+          country: data.country_code || 'WAN'
+        });
+      } catch (e) {
+        // Fallback endpoint if ipapi is rate limited
+        try {
+          const res2 = await fetch('https://api.ipify.org?format=json');
+          const data2 = await res2.json();
+          updateWanUI({ publicIp: data2.ip, isp: 'Public IP', country: 'WAN' });
+        } catch (err) {
+          updateWanUI({ publicIp: 'Offline', isp: 'No WAN Link', country: 'ERR' });
         }
-      });
-    } catch (err) {
-      console.error('Probe error:', err);
+      }
     }
-  }, 1000);
 
-  ws.on('close', () => clearInterval(timer));
-});
+    function updateWanUI(wanData) {
+      if (!wanData) return;
+      detectedPublicIp = wanData.publicIp || wanData.ip || detectedPublicIp;
+      detectedIsp = wanData.isp || wanData.org || detectedIsp;
+      detectedCountry = wanData.country || wanData.country_code || detectedCountry;
 
-const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0';
+      ['c1', 'c2'].forEach(caseKey => {
+        const ipEl = document.getElementById(`${caseKey}-wan-ip`);
+        const ispEl = document.getElementById(`${caseKey}-wan-isp`);
+        const countryEl = document.getElementById(`${caseKey}-wan-country`);
 
-server.listen(PORT, HOST, () => {
-  console.log(`Traceroute server active at http://${HOST}:${PORT}`);
-});
+        if (ipEl) ipEl.innerText = detectedPublicIp;
+        if (ispEl) {
+          ispEl.innerText = `ISP: ${detectedIsp}`;
+          ispEl.title = detectedIsp;
+        }
+        if (countryEl) countryEl.innerText = detectedCountry;
+      });
+    }
+
+    function formatLatency(val) {
+      if (val === null || val === undefined || isNaN(val)) return '--';
+      const num = parseFloat(val);
+      return num < 1 ? `${num.toFixed(1)}ms` : `${Math.round(num)}ms`;
+    }
+
+    function formatSpeedNum(mbps) {
+      if (!mbps || mbps <= 0) return '-- Mbps';
+      return `${parseFloat(mbps).toFixed(1)} Mbps`;
+    }
+
+    function calculateGradeAndSummary(ping) {
+      if (ping === null || ping < 0 || isNaN(ping)) {
+        return { grade: 'GRADE E', css: 'grade-e', tip: '❌ Connection Failed' };
+      }
+      if (ping <= 20) return { grade: 'GRADE A', css: 'grade-a', tip: '⚡ Optimal Direct Path' };
+      if (ping <= 50) return { grade: 'GRADE B', css: 'grade-b', tip: ' Good Ping' };
+      if (ping <= 110) return { grade: 'GRADE C', css: 'grade-c', tip: '⚠️ Fair Route' };
+      if (ping <= 220) return { grade: 'GRADE D', css: 'grade-d', tip: '🛡️ Recommend VPN' };
+      return { grade: 'GRADE E', css: 'grade-e', tip: '🚫 Poor - Use VPN Relay' };
+    }
+
+    function updateCaseUI(caseKey, caseData, gatewayIp) {
+      if (!caseData) return;
+
+      const l1Badge = document.getElementById(`${caseKey}-l1-badge`);
+      const l1Val = document.getElementById(`${caseKey}-l1-val`);
+      if (l1Badge) {
+        l1Badge.innerText = caseData.link1?.type || 'Wi-Fi';
+        l1Badge.className = `link-badge bg-${caseData.link1?.state || 'green'}`;
+      }
+      if (l1Val) l1Val.innerText = formatLatency(caseData.link1?.ping);
+
+      const routerSub = document.getElementById(`${caseKey}-router-sub`);
+      if (routerSub) routerSub.innerText = gatewayIp || detectedGatewayIp;
+
+      const b2Val = document.getElementById(`${caseKey}-b2-val`);
+      if (b2Val) b2Val.innerText = formatLatency(caseData.b2);
+
+      const l2Val = document.getElementById(`${caseKey}-l2-val`);
+      const b3Val = document.getElementById(`${caseKey}-b3-val`);
+      const b3Bar = document.getElementById(`${caseKey}-b3-bar`);
+      const l2Badge = document.getElementById(`${caseKey}-l2-badge`);
+      const hopsVal = document.getElementById(`${caseKey}-hops-val`);
+
+      const targetPing = caseData.b3;
+      const targetHops = caseData.hops || 8;
+
+      if (targetPing === null || targetPing < 0) {
+        if (l2Val) l2Val.innerText = "Fail";
+        if (b3Val) b3Val.innerText = "Fail";
+        if (hopsVal) hopsVal.innerText = "-- Hops";
+        if (l2Badge) l2Badge.className = "link-badge bg-red";
+        if (b3Bar) { b3Bar.style.width = "100%"; b3Bar.style.backgroundColor = "var(--red)"; }
+      } else {
+        const formattedB3 = formatLatency(targetPing);
+        if (l2Val) l2Val.innerText = formattedB3;
+        if (b3Val) b3Val.innerText = formattedB3;
+        if (hopsVal) hopsVal.innerText = `${targetHops} Hops`;
+
+        const p3 = parseFloat(targetPing);
+        const state = p3 < 35 ? 'green' : p3 < 90 ? 'yellow' : 'red';
+        if (l2Badge) l2Badge.className = `link-badge bg-${state}`;
+        if (b3Bar) {
+          b3Bar.style.width = `${Math.max(8, 100 - (p3 / 2.5))}%`;
+          b3Bar.style.backgroundColor = state === 'green' ? 'var(--green)' : state === 'yellow' ? 'var(--amber)' : 'var(--red)';
+        }
+      }
+
+      const evalResult = calculateGradeAndSummary(targetPing);
+      const gradeBadge = document.getElementById(`${caseKey}-grade-badge`);
+      const summaryTip = document.getElementById(`${caseKey}-summary-tip`);
+
+      if (gradeBadge) {
+        gradeBadge.innerText = evalResult.grade;
+        gradeBadge.className = `grade-badge ${evalResult.css}`;
+      }
+      if (summaryTip) summaryTip.innerText = evalResult.tip;
+
+      if (caseData.target) {
+        const targetLabel = document.getElementById(`${caseKey}-target-label`);
+        if (targetLabel) targetLabel.innerText = caseData.target;
+      }
+    }
+
+    function triggerSpeedTest() {
+      const btns = document.querySelectorAll('.btn-speedtest');
+      btns.forEach(btn => {
+        btn.disabled = true;
+        btn.innerText = "⏳ Testing...";
+      });
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RUN_SPEED_TEST' }));
+      }
+    }
+
+    function toggleDropdown() {
+      document.getElementById('dropdown-menu').classList.toggle('show');
+    }
+
+    function selectOption(val, displayLabel) {
+      let target = val;
+      document.getElementById('dropdown-menu').classList.remove('show');
+
+      if (val === 'MANUAL_INPUT') {
+        const userInput = prompt("Enter target IP or Domain (e.g. 1.1.1.1, yahoo.co.jp):");
+        if (!userInput || !userInput.trim()) return;
+
+        target = userInput.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+        displayLabel = `🌐 ${target}`;
+      }
+
+      document.getElementById('selected-label').innerText = displayLabel;
+
+      if (target && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_TARGET_RANK2', target: target }));
+      }
+    }
+
+    window.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('region-dropdown');
+      if (dropdown && !dropdown.contains(e.target)) {
+        document.getElementById('dropdown-menu').classList.remove('show');
+      }
+    });
+
+    // Run WAN detection & WS on startup
+    initWebSocket();
+    fetchClientWanInfo();
+  </script>
+</body>
+</html>
