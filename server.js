@@ -10,18 +10,40 @@ const { exec } = require('child_process');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-const cors = require('cors');
 
-app.use(cors({
-  origin: ['https://it.ai-daily.uk', 'https://*.ai-daily.uk'],
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
+// Native CORS Middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const isAllowedOrigin = origin && (
+    origin === 'https://it.ai-daily.uk' || 
+    /^https:\/\/[a-zA-Z0-9-]+\.ai-daily\.uk$/.test(origin)
+  );
 
-// Serve static files (index.html, styles.css, app.js) directly from the repository root
+  if (isAllowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Health check endpoint for Coolify container monitoring
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// Serve static files directly from root directory
 app.use(express.static(__dirname));
 
-// Fallback route to explicitly serve index.html at root "/"
+// Fallback route to serve index.html at root "/"
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -47,10 +69,8 @@ function runOnDemandSpeedTest(broadcast) {
   const DURATION_MS = 4000;
   const startTime = Date.now();
   let totalBytesReceived = 0;
-  let activeStreams = 0;
 
   const downloadStream = () => new Promise((resolve) => {
-    activeStreams++;
     const req = https.get('https://speed.cloudflare.com/__down?bytes=25000000', (res) => {
       res.on('data', (chunk) => {
         totalBytesReceived += chunk.length;
@@ -262,4 +282,8 @@ wss.on('connection', (ws) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Traceroute server active at http://localhost:${PORT}`));
+const HOST = '0.0.0.0';
+
+server.listen(PORT, HOST, () => {
+  console.log(`Traceroute server active at http://${HOST}:${PORT}`);
+});
