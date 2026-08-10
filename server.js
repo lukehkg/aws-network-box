@@ -10,6 +10,13 @@ const { exec } = require('child_process');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+const cors = require('cors');
+
+app.use(cors({
+  origin: ['https://it.ai-daily.uk', 'https://*.ai-daily.uk'],
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 // Serve static files (index.html, styles.css, app.js) directly from the repository root
 app.use(express.static(__dirname));
