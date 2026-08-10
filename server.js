@@ -8,8 +8,25 @@ const os = require('os');
 const { exec } = require('child_process');
 
 const app = express();
+
+// Enable reverse proxy support (Crucial for Coolify / Traefik / Nginx)
+app.set('trust proxy', true);
+
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// Helper to extract clean WAN IP
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.headers['cf-connecting-ip'] || 
+         req.headers['x-real-ip'] || 
+         req.ip || 
+         req.socket.remoteAddress || 
+         'Unknown';
+}
 
 // Native CORS Middleware
 app.use((req, res, next) => {
@@ -35,15 +52,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint for Coolify container monitoring
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Serve static files directly from root directory
+// Direct REST API route for IP retrieval
+app.get('/api/ip', (req, res) => {
+  res.json({ ip: getClientIp(req) });
+});
+
+// Serve static files
 app.use(express.static(__dirname));
 
-// Fallback route to serve index.html at root "/"
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -57,7 +78,6 @@ let speedCache = {
   status: 'Idle'
 };
 
-// On-Demand Multi-Stream Speed Test (4-second parallel download)
 function runOnDemandSpeedTest(broadcast) {
   if (speedCache.isTesting) return;
   speedCache.isTesting = true;
@@ -106,7 +126,7 @@ function runOnDemandSpeedTest(broadcast) {
 
 function runUploadTest(broadcast) {
   const startTime = Date.now();
-  const dummyData = Buffer.alloc(1024 * 1024, 'a'); // 1MB payload
+  const dummyData = Buffer.alloc(1024 * 1024, 'a');
 
   const options = {
     hostname: 'speed.cloudflare.com',
@@ -199,7 +219,10 @@ function runTraceroute(host) {
   });
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Capture client's public WAN IP address on connection
+  const clientWanIp = getClientIp(req);
+
   let targets = {
     rank1: 'google.com',
     rank2: 'bbc.co.uk'
@@ -256,6 +279,7 @@ wss.on('connection', (ws) => {
       const p2 = await probeTarget(targets.rank2);
 
       broadcastCurrent({
+        clientIp: clientWanIp, // Broadcast WAN IP to client
         gatewayIp: gatewayInfo.ip,
         bandwidth: speedCache,
         rank1: { 
