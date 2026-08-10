@@ -273,6 +273,60 @@
       font-family: monospace;
     }
 
+    .btn-portscan {
+      background: var(--purple);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 0.47rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-portscan:disabled {
+      background: var(--border);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    .port-results {
+      font-size: 0.47rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      font-weight: 600;
+    }
+
+    .port-scan-group {
+      display: flex;
+      gap: 3px;
+      margin-top: 3px;
+    }
+
+    .port-scan-input {
+      flex-grow: 1;
+      width: 100%;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      font-size: 0.47rem;
+      font-weight: 600;
+      padding: 2px 4px;
+      font-family: monospace;
+    }
+    .port-scan-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .sub.vpn-warning {
+      color: var(--amber);
+      font-weight: 700;
+      font-size: 0.44rem;
+      margin-top: 1px;
+    }
+
     .link-connector {
       display: flex;
       flex-direction: column;
@@ -369,7 +423,8 @@
         <!-- 1. Mobile -->
         <div class="box">
           <div class="box-header-icon">📱</div>
-          <div class="sub">Mobile Device</div>
+          <div class="sub">Local Device</div>
+          <div class="sub" id="c1-dns-server-ip">DNS: --</div>
           <div class="status-row" id="c1-local-status"><span class="status-good">Good</span></div>
           <div class="gauge"><div class="fill power-bar-flash"></div></div>
         </div>
@@ -402,6 +457,11 @@
           </div>
           <div class="sub highlight-ip" id="c1-wan-ip">Fetching...</div>
           <div class="sub" id="c1-wan-isp" title="Detected ISP">ISP: Detecting...</div>
+          <div class="port-scan-group">
+            <input type="text" class="port-scan-input" id="c1-port-input" placeholder="Custom (e.g. 80-1024)">
+            <button class="btn-portscan" onclick="triggerPortScan('c1')" title="Scan default ports, or custom range if specified">Scan</button>
+          </div>
+          <div class="port-results" id="c1-port-results"></div>
           <div class="gauge"><div class="fill" id="c1-wan-bar" style="width: 100%; background-color: var(--cyan);"></div></div>
         </div>
 
@@ -435,7 +495,8 @@
         <!-- 1. Mobile -->
         <div class="box">
           <div class="box-header-icon">📱</div>
-          <div class="sub">Mobile Device</div>
+          <div class="sub">Local Device</div>
+          <div class="sub" id="c2-dns-server-ip">DNS: --</div>
           <div class="status-row" id="c2-local-status"><span class="status-good">Good</span></div>
           <div class="gauge"><div class="fill power-bar-flash"></div></div>
         </div>
@@ -468,6 +529,11 @@
           </div>
           <div class="sub highlight-ip" id="c2-wan-ip">Fetching...</div>
           <div class="sub" id="c2-wan-isp" title="Detected ISP">ISP: Detecting...</div>
+          <div class="port-scan-group">
+            <input type="text" class="port-scan-input" id="c2-port-input" placeholder="Custom (e.g. 80-1024)">
+            <button class="btn-portscan" onclick="triggerPortScan('c2')" title="Scan default ports, or custom range if specified">Scan</button>
+          </div>
+          <div class="port-results" id="c2-port-results"></div>
           <div class="gauge"><div class="fill" id="c2-wan-bar" style="width: 100%; background-color: var(--cyan);"></div></div>
         </div>
 
@@ -537,9 +603,36 @@
           // The gateway IP might be sent once initially or with probe data
           if (data.gatewayIp) detectedGatewayIp = data.gatewayIp;
 
+          if (data.dnsServer) {
+            const dns1 = document.getElementById('c1-dns-server-ip');
+            const dns2 = document.getElementById('c2-dns-server-ip');
+            if (dns1) dns1.innerText = `DNS: ${data.dnsServer}`;
+            if (dns2) dns2.innerText = `DNS: ${data.dnsServer}`;
+          }
+
           // WAN Detection payload from WebSocket backend (handles both initial and periodic updates)
           if (data.publicIp) {
             updateWanUI(data.wan || { publicIp: data.publicIp, isp: data.isp, country: data.country });
+          }
+
+          if (data.type === 'PORT_SCAN_RESULT') {
+            ['c1', 'c2'].forEach(caseKey => {
+              const resultsEl = document.getElementById(`${caseKey}-port-results`);
+              const btnEl = document.querySelector(`#card-${caseKey} .btn-portscan`);
+              if (!resultsEl || !btnEl) return;
+
+              if (data.data.status === 'Scanning...') {
+                resultsEl.innerText = 'Scanning...';
+                btnEl.disabled = true;
+              } else if (data.data.status === 'Complete') {
+                const openPorts = data.data.results.map(r => r.port);
+                resultsEl.innerText = openPorts.length > 0 ? `Open: ${openPorts.join(', ')}` : 'No common ports open.';
+                btnEl.disabled = false;
+              } else if (data.data.error) {
+                resultsEl.innerText = `Error: ${data.data.error}`;
+                btnEl.disabled = false;
+              }
+            });
           }
 
           if (data.rank1) updateCaseUI('c1', data.rank1, data.gatewayIp);
@@ -678,6 +771,28 @@
       if (caseData.target) {
         const targetLabel = document.getElementById(`${caseKey}-target-label`);
         if (targetLabel) targetLabel.innerText = caseData.target;
+      }
+    }
+
+    function triggerPortScan(caseKey) {
+      const btn = document.querySelector(`#card-${caseKey} .btn-portscan`);
+      const resultsEl = document.getElementById(`${caseKey}-port-results`);
+      const inputEl = document.getElementById(`${caseKey}-port-input`);
+
+      if (btn) btn.disabled = true;
+      if (resultsEl) resultsEl.innerText = 'Requesting scan...';
+
+      let payload = { type: 'RUN_PORT_SCAN' };
+
+      if (inputEl && inputEl.value.trim()) {
+        payload.data = { range: inputEl.value.trim() };
+      }
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      } else {
+        if (resultsEl) resultsEl.innerText = 'Connection error.';
+        if (btn) btn.disabled = false;
       }
     }
 

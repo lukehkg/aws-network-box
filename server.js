@@ -6,6 +6,8 @@ const ping = require('ping');
 const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
+const net = require('net');
+const dns = require('dns');
 const app = express();
 // Enable reverse proxy support (Crucial for Coolify / Traefik / Nginx)
 app.set('trust proxy', true);
@@ -76,6 +78,76 @@ let speedCache = {
   status: 'Idle'
 };
 
+function runPortScan(targetIp, broadcast, customRange) {
+  if (!targetIp || ['Unknown', 'Offline'].includes(targetIp)) {
+    broadcast({ type: 'PORT_SCAN_RESULT', publicIp: targetIp, data: { error: 'Invalid WAN IP' } });
+    return;
+  }
+
+  broadcast({ type: 'PORT_SCAN_RESULT', publicIp: targetIp, data: { status: 'Scanning...' } });
+
+  let portsToScan = [];
+  if (customRange) {
+    const parts = customRange.split('-').map(p => parseInt(p.trim(), 10));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      let [start, end] = parts;
+      if (start > end) [start, end] = [end, start]; // Swap if in wrong order
+      start = Math.max(1, start);
+      end = Math.min(65535, end);
+
+      // Limit scan size to prevent abuse
+      if (end - start + 1 > 2000) {
+        end = start + 1999;
+      }
+      portsToScan = Array.from({length: end - start + 1}, (_, i) => start + i);
+    }
+  }
+
+  // Fallback to default if custom range is invalid or not provided
+  if (portsToScan.length === 0) {
+    portsToScan = Array.from({length: 1024 - 80 + 1}, (_, i) => 80 + i);
+  }
+
+  const results = [];
+  let completed = 0;
+
+  const checkPort = (port) => {
+    const socket = new net.Socket();
+    let hadError = false;
+
+    socket.setTimeout(1500);
+
+    socket.on('connect', () => {
+      socket.end();
+    });
+
+    socket.on('timeout', () => {
+      hadError = true;
+      socket.destroy();
+    });
+
+    socket.on('error', (err) => {
+      hadError = true;
+    });
+
+    socket.on('close', () => {
+      if (!hadError) {
+        results.push({ port, open: true });
+      }
+      completed++;
+      if (completed === portsToScan.length) {
+        broadcast({ type: 'PORT_SCAN_RESULT', publicIp: targetIp, data: { status: 'Complete', results: results } });
+      }
+    });
+    socket.connect(port, targetIp);
+  };
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < portsToScan.length; i += BATCH_SIZE) {
+    portsToScan.slice(i, i + BATCH_SIZE).forEach(checkPort);
+  }
+}
+
 function sanitizeHost(input) {
   if (!input) return 'bbc.co.uk';
   let clean = input.trim().toLowerCase();
@@ -141,6 +213,7 @@ wss.on('connection', (ws, req) => {
 
   Object.values(targets).forEach(runTraceroute);
   const gatewayInfo = getLocalGatewayInfo();
+  const dnsServers = dns.getServers();
 
   const broadcastCurrent = (msgObj) => {
     if (ws.readyState === WebSocket.OPEN) {
@@ -152,7 +225,8 @@ wss.on('connection', (ws, req) => {
   broadcastCurrent({
     publicIp: clientWanIp,
     gatewayIp: gatewayInfo.ip,
-    wan: { isp: 'Detecting...', country: 'WAN' }
+    wan: { isp: 'Detecting...', country: 'WAN' },
+    dnsServer: dnsServers.length > 0 ? dnsServers[0] : null
   });
 
   ws.on('message', (message) => {
@@ -162,6 +236,8 @@ wss.on('connection', (ws, req) => {
         const clean = sanitizeHost(data.target);
         targets.rank2 = clean;
         runTraceroute(clean);
+      } else if (data.type === 'RUN_PORT_SCAN') {
+        runPortScan(clientWanIp, broadcastCurrent, data.data?.range);
       }
     } catch (e) {
       console.error('Payload error:', e);
