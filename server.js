@@ -6,9 +6,7 @@ const ping = require('ping');
 const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
-
 const app = express();
-
 // Enable reverse proxy support (Crucial for Coolify / Traefik / Nginx)
 app.set('trust proxy', true);
 
@@ -77,93 +75,6 @@ let speedCache = {
   isTesting: false,
   status: 'Idle'
 };
-
-function runOnDemandSpeedTest(broadcast) {
-  if (speedCache.isTesting) return;
-  speedCache.isTesting = true;
-  speedCache.status = 'Testing...';
-
-  broadcast({ type: 'SPEED_TEST_STATUS', data: speedCache });
-
-  const CONCURRENCY = 4;
-  const DURATION_MS = 4000;
-  const startTime = Date.now();
-  let totalBytesReceived = 0;
-
-  const downloadStream = () => new Promise((resolve) => {
-    const req = https.get('https://speed.cloudflare.com/__down?bytes=25000000', (res) => {
-      res.on('data', (chunk) => {
-        totalBytesReceived += chunk.length;
-        if (Date.now() - startTime >= DURATION_MS) {
-          req.destroy();
-        }
-      });
-      res.on('end', resolve);
-      res.on('error', resolve);
-    });
-
-    req.on('error', resolve);
-    req.setTimeout(DURATION_MS, () => {
-      req.destroy();
-      resolve();
-    });
-  });
-
-  const streamPromises = [];
-  for (let i = 0; i < CONCURRENCY; i++) {
-    streamPromises.push(downloadStream());
-  }
-
-  Promise.all(streamPromises).then(() => {
-    const elapsedSec = (Date.now() - startTime) / 1000;
-    if (elapsedSec > 0 && totalBytesReceived > 0) {
-      speedCache.downloadSpeed = parseFloat(((totalBytesReceived * 8) / (elapsedSec * 1000000)).toFixed(1));
-    }
-
-    runUploadTest(broadcast);
-  });
-}
-
-function runUploadTest(broadcast) {
-  const startTime = Date.now();
-  const dummyData = Buffer.alloc(1024 * 1024, 'a');
-
-  const options = {
-    hostname: 'speed.cloudflare.com',
-    port: 443,
-    path: '/__up',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Length': dummyData.length
-    }
-  };
-
-  const req = https.request(options, (res) => {
-    res.on('data', () => {});
-    res.on('end', () => {
-      const durationSec = (Date.now() - startTime) / 1000;
-      if (durationSec > 0) {
-        speedCache.uploadSpeed = parseFloat(((dummyData.length * 8) / (durationSec * 1000000)).toFixed(1));
-      }
-      finishSpeedTest(broadcast);
-    });
-  });
-
-  req.on('error', () => {
-    speedCache.uploadSpeed = parseFloat((speedCache.downloadSpeed * 0.25).toFixed(1));
-    finishSpeedTest(broadcast);
-  });
-
-  req.write(dummyData);
-  req.end();
-}
-
-function finishSpeedTest(broadcast) {
-  speedCache.isTesting = false;
-  speedCache.status = 'Complete';
-  broadcast({ type: 'SPEED_TEST_STATUS', data: speedCache });
-}
 
 function sanitizeHost(input) {
   if (!input) return 'bbc.co.uk';
@@ -237,6 +148,13 @@ wss.on('connection', (ws, req) => {
     }
   };
 
+  // Fetch IP details and send initial static data once on connection
+  broadcastCurrent({
+    publicIp: clientWanIp,
+    gatewayIp: gatewayInfo.ip,
+    wan: { isp: 'Detecting...', country: 'WAN' }
+  });
+
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
@@ -244,8 +162,6 @@ wss.on('connection', (ws, req) => {
         const clean = sanitizeHost(data.target);
         targets.rank2 = clean;
         runTraceroute(clean);
-      } else if (data.type === 'RUN_SPEED_TEST') {
-        runOnDemandSpeedTest(broadcastCurrent);
       }
     } catch (e) {
       console.error('Payload error:', e);
@@ -268,7 +184,7 @@ wss.on('connection', (ws, req) => {
       const wifiModes = [
         { type: '5G Wi-Fi', ping: (0.4 + Math.random() * 0.8).toFixed(1), state: 'green' },
         { type: '2.4G Wi-Fi', ping: (2.1 + Math.random() * 3.5).toFixed(1), state: 'green' },
-        { type: 'LAN Cable', ping: (0.2 + Math.random() * 0.3).toFixed(1), state: 'green' }
+        { type: 'LAN Cable', ping: (0.2 + Math.random() * 0.3).toFixed(1), state: 'green' },
       ];
 
       const mode1 = wifiModes[Math.floor(Math.random() * wifiModes.length)];
@@ -279,28 +195,26 @@ wss.on('connection', (ws, req) => {
       const p2 = await probeTarget(targets.rank2);
 
       broadcastCurrent({
-        clientIp: clientWanIp, // Broadcast WAN IP to client
-        gatewayIp: gatewayInfo.ip,
         bandwidth: speedCache,
         rank1: { 
           link1: mode1, 
           b2: routerProc, 
           b3: p1, 
           hops: tracerouteCache[targets.rank1] || 6, 
-          target: targets.rank1
+          target: targets.rank1,
         },
         rank2: { 
           link1: mode2, 
           b2: routerProc, 
           b3: p2, 
           hops: tracerouteCache[targets.rank2] || 8, 
-          target: targets.rank2
+          target: targets.rank2,
         }
       });
     } catch (err) {
       console.error('Probe error:', err);
     }
-  }, 1000);
+  }, 2500);
 
   ws.on('close', () => clearInterval(timer));
 });
