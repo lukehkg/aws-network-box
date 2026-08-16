@@ -973,7 +973,7 @@
           if (data.type === 'LOCAL_NETWORK_SCAN_RESULT') {
             const resultsEl = document.getElementById('local-network-results');
             const tableBody = document.querySelector('#local-network-table tbody');
-            const btn = document.getElementById('local-scan-btn');
+            const btn = document.getElementById('local-scan-btn'); // Get button element
             if (resultsEl && tableBody) {
               tableBody.innerHTML = ''; // Clear previous results
               btn.disabled = false; // Re-enable button
@@ -1067,8 +1067,8 @@
             URL.revokeObjectURL(url); // Clean up
           }
 
-          if (data.rank1) updateCaseUI('c1', data.rank1, data.gatewayIp);
-          if (data.rank2) updateCaseUI('c2', data.rank2, data.gatewayIp);
+          if (data.rank1) updateCaseUI('c1', data.rank1, serverGatewayIp); // Use serverGatewayIp
+          if (data.rank2) updateCaseUI('c2', data.rank2, serverGatewayIp); // Use serverGatewayIp
         } catch (e) {
           console.error("WS message parse error:", e);
           };
@@ -1284,15 +1284,12 @@
       if (btn) btn.disabled = true;
       if (spinner) spinner.style.display = 'inline-block';
       
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'RUN_NETWORK_PING', target: target }));
-      } else {
+      if (!(ws && ws.readyState === WebSocket.OPEN)) { // Check if WS is NOT open
         if (resultsEl) resultsEl.innerText = 'Connection error. Please refresh.';
         if (btn) btn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
         return;
       }
-      // The actual message sending is now inside the if (ws && ws.readyState === WebSocket.OPEN) block
-
       const testOrigin = document.querySelector('input[name="test-origin"]:checked').value;
       const messageType = testOrigin === 'local' ? 'RUN_GATEWAY_PING' : 'RUN_NETWORK_PING';
       ws.send(JSON.stringify({ type: messageType, target: target }));

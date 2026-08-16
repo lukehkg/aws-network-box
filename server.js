@@ -151,7 +151,7 @@ function runPortScan(targetToScan, broadcast, customRange, messageType = 'PORT_S
         broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Complete', results: results, target: targetToScan } });
       }
     });
-    socket.connect(port, targetIp);
+    socket.connect(port, targetToScan); // Fix: Use targetToScan
   };
 
   const BATCH_SIZE = 100;
