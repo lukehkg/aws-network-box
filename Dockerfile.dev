@@ -1,0 +1,22 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies, including devDependencies for local development
+# This will also install tools like nodemon if they are in devDependencies
+RUN npm install
+
+# Copy the rest of the application source code into the container
+COPY . .
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV NODE_ENV=development
+
+# Use nodemon to automatically restart the server on file changes.
+# The --legacy-watch flag is often needed in Docker to ensure file polling works correctly.
+CMD ["npx", "nodemon", "--legacy-watch", "server.js"]

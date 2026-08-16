@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  tracer-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    volumes:
+      # Mount local source code into the container for hot-reloading
+      - .:/app
+      # Prevent local node_modules from overwriting the container's node_modules
+      - /app/node_modules
