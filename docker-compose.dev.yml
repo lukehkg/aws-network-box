@@ -13,3 +13,5 @@ services:
       - .:/app
       # Prevent local node_modules from overwriting the container's node_modules
       - /app/node_modules
+    ports:
+      - "3000:3000" # Map host port 3000 to container port 3000

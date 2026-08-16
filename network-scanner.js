@@ -173,3 +173,4 @@ async function scanLocalNetwork(subnet, broadcast) {
 module.exports = {
   getLocalNetworkInfo,
   scanLocalNetwork,
+};

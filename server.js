@@ -90,107 +90,8 @@ let speedCache = {
 // In-memory store for rate limiting per client IP
 const clientRateLimits = new Map();
 
-function runPortScan(targetToScan, broadcast, customRange, messageType = 'PORT_SCAN_RESULT') {
-  if (!targetToScan || ['Unknown', 'Offline'].includes(targetToScan)) {
-    broadcast({ type: messageType, publicIp: targetToScan, data: { error: 'Invalid target IP/Domain', target: targetToScan } });
-    return;
-  }
-
-  broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Scanning...', target: targetToScan } });
-
-  let portsToScan = [];
-  if (customRange) {
-    const parts = customRange.split('-').map(p => parseInt(p.trim(), 10));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      let [start, end] = parts;
-      if (start > end) [start, end] = [end, start]; // Swap if in wrong order
-      start = Math.max(1, start);
-      end = Math.min(65535, end);
-
-      // Limit scan size to prevent abuse
-      if (end - start + 1 > 2000) {
-        end = start + 1999;
-      }
-      portsToScan = Array.from({length: end - start + 1}, (_, i) => start + i);
-    }
-  }
-
-  // Fallback to default if custom range is invalid or not provided
-  if (portsToScan.length === 0) {
-    portsToScan = Array.from({length: 1024 - 80 + 1}, (_, i) => 80 + i);
-  }
-
-  const results = [];
-  let completed = 0;
-
-  const checkPort = (port) => {
-    const socket = new net.Socket();
-    let hadError = false;
-
-    socket.setTimeout(1500);
-
-    socket.on('connect', () => {
-      socket.end();
-    });
-
-    socket.on('timeout', () => {
-      hadError = true;
-      socket.destroy();
-    });
-
-    socket.on('error', (err) => {
-      hadError = true;
-    });
-
-    socket.on('close', () => {
-      if (!hadError) {
-        results.push({ port, open: true });
-      }
-      completed++;
-      if (completed === portsToScan.length) {
-        broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Complete', results: results, target: targetToScan } });
-      }
-    });
-    socket.connect(port, targetToScan); // Fix: Use targetToScan
-  };
-
-  const BATCH_SIZE = 100;
-  for (let i = 0; i < portsToScan.length; i += BATCH_SIZE) {
-    portsToScan.slice(i, i + BATCH_SIZE).forEach(checkPort);
-  }
-}
-
-function runTraceroute(host) {
-  if (!host) return;
-  const target = sanitizeHost(host);
-  const isWin = process.platform === 'win32';
-  const cmd = isWin 
-    ? `tracert -d -h 15 -w 500 ${target}` 
-    : `traceroute -n -m 15 -w 1 ${target}`;
-
-  exec(cmd, (error, stdout) => {
-    if (error || !stdout) {
-      tracerouteCache[target] = Math.floor(6 + Math.random() * 5);
-      return;
-    }
-
-    const lines = stdout.split('\n');
-    let maxHop = 0;
-
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      const match = trimmed.match(/^(\d+)\s+/);
-      if (match) {
-        const hopNum = parseInt(match[1], 10);
-        if (hopNum > maxHop) maxHop = hopNum;
-      }
-    });
-
-    tracerouteCache[target] = maxHop > 0 ? maxHop : Math.floor(7 + Math.random() * 4);
-  });
-}
-
 // Rate limiting configuration
+// Note: These values are for demonstration. Adjust for production as needed.
 const RATE_LIMIT_CONFIG = {
   PING: { windowMs: 2000, max: 1, message: 'Too many ping requests. Please wait.' }, // 1 ping per 2 seconds
   PORT_SCAN: { windowMs: 10000, max: 1, message: 'Too many port scan requests. Please wait.' }, // 1 scan per 10 seconds
@@ -214,6 +115,7 @@ function checkRateLimit(clientIp, actionType, broadcast) {
   const lastRequestTime = clientData[actionType] || 0;
 
   if (now - lastRequestTime < config.windowMs) {
+    console.warn(`Rate limit exceeded for IP ${clientIp}, action ${actionType}.`);
     broadcast({ type: 'RATE_LIMIT_EXCEEDED', data: { message: config.message, action: actionType } });
     return false; // Rate limit exceeded
   }
@@ -257,6 +159,7 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
+      console.log(`Received WS message from ${clientWanIp}:`, data.type);
 
       // Apply rate limiting based on message type
       let actionType;
@@ -278,6 +181,7 @@ wss.on('connection', (ws, req) => {
       }
 
       if (actionType && !checkRateLimit(clientWanIp, actionType, broadcastCurrent)) {
+        console.log(`Request for ${data.type} from ${clientWanIp} blocked by rate limit.`);
         return; // Rate limit exceeded, do not process request
       }
 
@@ -311,6 +215,7 @@ wss.on('connection', (ws, req) => {
           broadcastCurrent({ type: 'LOCAL_NETWORK_SCAN_RESULT', data: { subnet: subnet, devices: devices } });
         }).catch(err => {
           console.error('Local network scan error:', err);
+          // Ensure the client knows the scan failed and can re-enable buttons
           broadcastCurrent({ type: 'LOCAL_NETWORK_SCAN_RESULT', data: { error: err.message, subnet: subnet } });
         });
       } else if (data.type === 'GET_ANALYSIS_HISTORY') {

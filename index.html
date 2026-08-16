@@ -852,6 +852,7 @@
     function initWebSocket() {
       if (window.location.protocol === 'file:') {
         console.warn('Running locally via file:// protocol. WebSocket disabled.');
+        console.error('WebSocket connection cannot be established when opening index.html directly from file system. Please run the Node.js server and access via http://localhost:3000 (or your server address).');
         // fetchClientWanInfo(); // This will be called after a short delay anyway
         return;
       }
@@ -912,6 +913,7 @@
               }
             }
             if (btn) btn.disabled = false;
+            document.getElementById('ping-spinner').style.display = 'none'; // Hide spinner
           }
 
           if (data.type === 'GATEWAY_PING_RESULT') {
@@ -925,6 +927,7 @@
               }
             }
             if (btn) btn.disabled = false;
+            document.getElementById('ping-spinner').style.display = 'none'; // Hide spinner
           }
 
           if (data.type === 'TCP_PORT_SCAN_RESULT_ADVANCED') {
@@ -939,6 +942,7 @@
               }
             }
             if (btn) btn.disabled = false;
+            document.getElementById('tcp-scan-spinner').style.display = 'none'; // Hide spinner
           }
 
           if (data.type === 'GATEWAY_PORT_SCAN_RESULT') {
@@ -954,14 +958,36 @@
               }
             }
             if (btn) btn.disabled = false;
+            document.getElementById('tcp-scan-spinner').style.display = 'none'; // Hide spinner
           }
 
           if (data.type === 'RATE_LIMIT_EXCEEDED') {
-            alert(`Rate limit exceeded: ${data.data.message}`);
-            // Re-enable buttons and hide spinners for the relevant actions
-            document.getElementById('ping-btn').disabled = false; document.getElementById('ping-spinner').style.display = 'none';
-            document.getElementById('tcp-scan-btn').disabled = false; document.getElementById('tcp-scan-spinner').style.display = 'none';
-            document.getElementById('local-scan-btn').disabled = false; document.getElementById('local-scan-spinner').style.display = 'none';
+            alert(`Rate limit exceeded for ${data.data.action}: ${data.data.message}`); // Keep one alert
+
+            const action = data.data.action;
+            if (action === 'PING') {
+              document.getElementById('ping-btn').disabled = false;
+              document.getElementById('ping-spinner').style.display = 'none';
+              document.getElementById('ping-results').innerText = `Rate limit exceeded. ${data.data.message}`;
+            } else if (action === 'PORT_SCAN') { // Covers advanced TCP scan
+              document.getElementById('tcp-scan-btn').disabled = false;
+              document.getElementById('tcp-scan-spinner').style.display = 'none';
+              document.getElementById('tcp-scan-results').innerText = `Rate limit exceeded. ${data.data.message}`;
+              // Also re-enable WAN port scan buttons (c1 and c2)
+              document.querySelector('#card-c1 .btn-portscan').disabled = false;
+              document.querySelector('#card-c2 .btn-portscan').disabled = false;
+              document.getElementById('c1-port-results').innerText = `Rate limit exceeded.`;
+              document.getElementById('c2-port-results').innerText = `Rate limit exceeded.`;
+            } else if (action === 'LOCAL_NETWORK_SCAN') {
+              document.getElementById('local-scan-btn').disabled = false;
+              document.getElementById('local-scan-spinner').style.display = 'none';
+              document.getElementById('local-network-results').innerHTML = `<p style="color: var(--red);">Rate limit exceeded. ${data.data.message}</p>`;
+            } else if (action === 'ADVANCED_SCAN') {
+              document.getElementById('advanced-scan-btn').disabled = false;
+              document.getElementById('subdomain-results').innerText = `Rate limit exceeded. ${data.data.message}`;
+              document.getElementById('mx-results').innerText = `Rate limit exceeded. ${data.data.message}`;
+              document.getElementById('ssl-results').innerText = `Rate limit exceeded. ${data.data.message}`;
+            }
           }
           if (data.type === 'LOCAL_NETWORK_SCAN_PROGRESS') {
             const resultsEl = document.getElementById('local-network-results');
@@ -974,6 +1000,7 @@
             const resultsEl = document.getElementById('local-network-results');
             const tableBody = document.querySelector('#local-network-table tbody');
             const btn = document.getElementById('local-scan-btn'); // Get button element
+            const spinner = document.getElementById('local-scan-spinner'); // Declare spinner here
             if (resultsEl && tableBody) {
               tableBody.innerHTML = ''; // Clear previous results
               btn.disabled = false; // Re-enable button
@@ -1267,6 +1294,7 @@
     }
 
     function triggerNetworkPing() {
+      console.log('triggerNetworkPing called');
       const inputEl = document.getElementById('network-target-input');
       const target = inputEl.value.trim();
       if (!target) {
@@ -1297,6 +1325,7 @@
     }
 
     function triggerTcpPortScan() {
+      console.log('triggerTcpPortScan called');
       const targetInputEl = document.getElementById('network-target-input');
       const portsInputEl = document.getElementById('tcp-ports-input');
       const target = targetInputEl.value.trim();
@@ -1356,6 +1385,7 @@
     }
 
     function triggerLocalNetworkScan() {
+      console.log('triggerLocalNetworkScan called');
       const inputEl = document.getElementById('local-subnet-input');
       const subnet = inputEl.value.trim();
       if (!subnet) {
@@ -1390,6 +1420,7 @@
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'RUN_LOCAL_NETWORK_SCAN', subnet: subnet }));
       } else {
+        if (spinner) spinner.style.display = 'none'; // Hide spinner if WS not open
         if (resultsEl) resultsEl.innerHTML = '<p style="color: var(--red);">Connection error. Please refresh.</p>';
         if (btn) btn.disabled = false;
       }
