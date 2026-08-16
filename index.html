@@ -1098,12 +1098,13 @@
           if (data.rank2) updateCaseUI('c2', data.rank2, serverGatewayIp); // Use serverGatewayIp
         } catch (e) {
           console.error("WS message parse error:", e);
-          };
+        } // This brace closes the try-catch block
+      };
 
       ws.onclose = () => {
         setTimeout(initWebSocket, 3000);
       };
-    }
+    } // This brace correctly closes the initWebSocket function
 
     // Client-side fallback to automatically detect Public IP & ISP if backend WS hasn't pushed WAN info
     async function fetchClientWanInfo() {
@@ -1420,6 +1421,7 @@
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'RUN_LOCAL_NETWORK_SCAN', subnet: subnet }));
       } else {
+        const spinner = document.getElementById('local-scan-spinner'); // FIX: Declare spinner here
         if (spinner) spinner.style.display = 'none'; // Hide spinner if WS not open
         if (resultsEl) resultsEl.innerHTML = '<p style="color: var(--red);">Connection error. Please refresh.</p>';
         if (btn) btn.disabled = false;

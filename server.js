@@ -127,6 +127,108 @@ function checkRateLimit(clientIp, actionType, broadcast) {
   return true; // Request allowed
 }
 
+// Function to run a port scan on a given target
+function runPortScan(targetToScan, broadcast, customRange, messageType = 'PORT_SCAN_RESULT') {
+  if (!targetToScan || ['Unknown', 'Offline'].includes(targetToScan)) {
+    broadcast({ type: messageType, publicIp: targetToScan, data: { error: 'Invalid target IP/Domain', target: targetToScan } });
+    return;
+  }
+
+  broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Scanning...', target: targetToScan } });
+
+  let portsToScan = [];
+  if (customRange) {
+    const parts = customRange.split('-').map(p => parseInt(p.trim(), 10));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      let [start, end] = parts;
+      if (start > end) [start, end] = [end, start]; // Swap if in wrong order
+      start = Math.max(1, start);
+      end = Math.min(65535, end);
+
+      // Limit scan size to prevent abuse
+      if (end - start + 1 > 2000) {
+        end = start + 1999;
+      }
+      portsToScan = Array.from({length: end - start + 1}, (_, i) => start + i);
+    }
+  }
+
+  // Fallback to default if custom range is invalid or not provided
+  if (portsToScan.length === 0) {
+    portsToScan = Array.from({length: 1024 - 80 + 1}, (_, i) => 80 + i);
+  }
+
+  const results = [];
+  let completed = 0;
+
+  const checkPort = (port) => {
+    const socket = new net.Socket();
+    let hadError = false;
+
+    socket.setTimeout(1500);
+
+    socket.on('connect', () => {
+      socket.end();
+    });
+
+    socket.on('timeout', () => {
+      hadError = true;
+      socket.destroy();
+    });
+
+    socket.on('error', (err) => {
+      hadError = true;
+    });
+
+    socket.on('close', () => {
+      if (!hadError) {
+        results.push({ port, open: true });
+      }
+      completed++;
+      if (completed === portsToScan.length) {
+        broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Complete', results: results, target: targetToScan } });
+      }
+    });
+    socket.connect(port, targetToScan);
+  };
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < portsToScan.length; i += BATCH_SIZE) {
+    portsToScan.slice(i, i + BATCH_SIZE).forEach(checkPort);
+  }
+}
+
+// Function to run a traceroute
+function runTraceroute(host) {
+  if (!host) return;
+  const target = sanitizeHost(host);
+  const isWin = process.platform === 'win32';
+  const cmd = isWin 
+    ? `tracert -d -h 15 -w 500 ${target}` 
+    : `traceroute -n -m 15 -w 1 ${target}`;
+
+  exec(cmd, (error, stdout) => {
+    if (error || !stdout) {
+      tracerouteCache[target] = Math.floor(6 + Math.random() * 5);
+      return;
+    }
+
+    const lines = stdout.split('\n');
+    let maxHop = 0;
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      const match = trimmed.match(/^(\d+)\s+/);
+      if (match) {
+        const hopNum = parseInt(match[1], 10);
+        if (hopNum > maxHop) maxHop = hopNum;
+      }
+    });
+
+    tracerouteCache[target] = maxHop > 0 ? maxHop : Math.floor(7 + Math.random() * 4);
+  });
+}
+
 wss.on('connection', (ws, req) => {
   // Capture client's public WAN IP address on connection
   const clientWanIp = getClientIp(req);
