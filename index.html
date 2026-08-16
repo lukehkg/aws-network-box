@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Network Check & WAN Inspector</title>
   <style>
     :root {
@@ -20,7 +20,12 @@
     }
 
     html {
-      font-size: 16px; /* Base font size for rem units */
+      /* Use a fluid root font-size so rem-based font sizes scale across devices.
+         - Minimum: 14px (small phones)
+         - Preferred: grows with viewport width (vw)
+         - Maximum: 20px (large desktops)
+      */
+      font-size: clamp(16px, 1.5vw, 20px); /* Increased base font size */
       -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape on iOS */
     }
 
@@ -69,16 +74,16 @@
       gap: 4px;
     }
 
-    .topo-icon { font-size: 0.7rem; line-height: 1; } /* 11.2px */
+    .topo-icon { font-size: 0.85rem; line-height: 1; }
     .topo-label {
-      font-size: 0.55rem; /* 8.8px */
+      font-size: 0.7rem;
       font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .topo-arrow { font-size: 0.5rem; color: var(--blue); opacity: 0.8; } /* 8px */
+    .topo-arrow { font-size: 0.7rem; color: var(--blue); opacity: 0.8; }
 
     .case-card {
       background: rgba(19, 26, 38, 0.7);
@@ -105,9 +110,9 @@
     }
 
     .grade-badge {
-      padding: 2px 5px;
+      padding: 3px 6px;
       border-radius: 4px;
-      font-size: 0.56rem; /* 9px */
+      font-size: 0.75rem;
       text-transform: uppercase;
       font-weight: 800;
       letter-spacing: 0.3px;
@@ -120,9 +125,9 @@
     .grade-e { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid var(--red); }
 
     .summary-tip {
-      font-size: 0.53rem; /* 8.5px */
+      font-size: 0.7rem;
       font-weight: 700;
-      padding: 2px 5px;
+      padding: 3px 6px;
       border-radius: 3px;
       background: rgba(255, 255, 255, 0.05);
       color: var(--text-muted);
@@ -146,13 +151,13 @@
       border: 1px solid var(--border);
       padding: 2px 6px;
       border-radius: 5px;
-      font-size: 0.6rem; /* 9.6px */
+      font-size: 0.75rem;
       font-weight: 700;
       display: flex;
       align-items: center;
       gap: 4px;
       cursor: pointer;
-      height: 22px;
+      height: 24px;
     }
 
     .dropdown-trigger-text {
@@ -162,7 +167,7 @@
       text-overflow: ellipsis;
     }
 
-    .arrow { font-size: 0.45rem; color: var(--text-muted); } /* 7.2px */
+    .arrow { font-size: 0.55rem; color: var(--text-muted); }
 
     .dropdown-menu {
       display: none;
@@ -183,7 +188,7 @@
     .dropdown-menu.show { display: block; }
 
     .dropdown-group-title {
-      font-size: 0.47rem; /* 7.5px */
+      font-size: 0.65rem;
       font-weight: 800;
       color: var(--text-muted);
       padding: 4px 6px 1px;
@@ -191,7 +196,7 @@
     }
 
     .dropdown-item {
-      font-size: 0.55rem; /* 8.8px */
+      font-size: 0.75rem;
       font-weight: 600;
       padding: 4px 6px;
       cursor: pointer;
@@ -221,7 +226,7 @@
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 5px 4px;
+      padding: 6px 6px;
       min-width: 0;
       position: relative;
     }
@@ -232,7 +237,7 @@
     }
 
     .box-header-icon {
-      font-size: 0.8rem; /* 12.8px */
+      font-size: 1.1rem;
       line-height: 1;
       display: flex;
       align-items: center;
@@ -241,7 +246,7 @@
     }
 
     .box-title-tag {
-      font-size: 0.44rem; /* 7px */
+      font-size: 0.65rem;
       font-weight: 800;
       padding: 1px 3px;
       border-radius: 2px;
@@ -251,7 +256,7 @@
     }
 
     .sub {
-      font-size: 0.47rem; /* 7.5px */
+      font-size: 0.75rem;
       color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
@@ -263,7 +268,7 @@
     .sub.vpn-warning {
       color: var(--amber);
       font-weight: 700;
-      font-size: 0.44rem;
+      font-size: 0.7rem;
       margin-top: 1px;
     }
 
@@ -279,7 +284,7 @@
       border: none;
       border-radius: 3px;
       padding: 2px 4px;
-      font-size: 0.47rem;
+      font-size: 0.7rem;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
@@ -292,7 +297,7 @@
     }
 
     .port-results {
-      font-size: 0.47rem;
+      font-size: 0.7rem;
       color: var(--text-muted);
       margin-top: 3px;
       font-weight: 600;
@@ -311,20 +316,12 @@
       border: 1px solid var(--border);
       border-radius: 3px;
       color: var(--text);
-      font-size: 0.47rem;
-      font-weight: 600;
+      font-size: 0.7rem;
       padding: 2px 4px;
       font-family: monospace;
     }
     .port-scan-input::placeholder {
       color: var(--text-muted);
-    }
-
-    .sub.vpn-warning {
-      color: var(--amber);
-      font-weight: 700;
-      font-size: 0.44rem;
-      margin-top: 1px;
     }
 
     .link-connector {
@@ -340,7 +337,7 @@
     .link-line { width: 100%; height: 2px; background: var(--border); margin: 1px 0; }
 
     .link-badge {
-      font-size: 0.44rem; /* 7px */
+      font-size: 0.65rem;
       font-weight: 700;
       padding: 1px 2px;
       border-radius: 3px;
@@ -348,8 +345,8 @@
       line-height: 1;
     }
 
-    .link-val { font-size: 0.47rem; font-weight: 700; color: var(--text-muted); margin-top: 1px; } /* 7.5px */
-    .link-subval { font-size: 0.41rem; font-weight: 700; color: var(--blue); } /* 6.5px */
+    .link-val { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
+    .link-subval { font-size: 0.65rem; font-weight: 700; color: var(--blue); }
 
     .bg-green { background: rgba(16, 185, 129, 0.25); color: var(--green); border: 1px solid var(--green); }
     .bg-yellow { background: rgba(245, 158, 11, 0.25); color: var(--amber); border: 1px solid var(--amber); }
@@ -362,8 +359,8 @@
       margin-top: 2px;
     }
 
-    .middle-ping-text { color: var(--text-muted); font-size: 0.47rem; line-height: 1.1; } /* 7.5px */
-    .status-good { color: var(--green); font-weight: 800; font-size: 0.53rem; } /* 8.5px */
+    .middle-ping-text { color: var(--text-muted); font-size: 0.8rem; font-weight: 700; line-height: 1.1; }
+    .status-good { color: var(--green); font-weight: 800; font-size: 0.8rem; } /* 8.5px */
 
     .gauge {
       height: 3px;
@@ -387,10 +384,79 @@
     }
 
     /* Responsive adjustments for smaller screens */
-    @media (max-width: 420px) {
-      html {
-        font-size: 14px; /* Scale down base font size on mobile */
+    @media (max-width: 640px) {
+      .pipeline {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
       }
+
+      .box {
+        padding: 10px 12px;
+        min-height: 70px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .box-header-icon {
+        margin-bottom: 2px;
+      }
+
+      /* Position the status row on the right on mobile */
+      .box .status-row {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        margin-top: 0;
+      }
+
+      /* Position the custom-dropdown on the right on mobile */
+      .box .custom-dropdown {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      /* If a box has both status-row and custom-dropdown (like box 4), shift the status row left */
+      .box:has(.custom-dropdown) .status-row {
+        right: 140px;
+      }
+
+      .link-connector {
+        flex-direction: row;
+        width: 100%;
+        height: auto;
+        padding: 6px 12px;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+      }
+
+      .link-line {
+        display: none;
+      }
+
+      .link-val {
+        margin-top: 0;
+      }
+    }
+
+    @media (max-width: 420px) {
+      /* Keep the clamp minimum but allow some extra spacing on very small phones */
+      html { font-size: clamp(14px, 4vw, 16px); } /* Increased for very small screens */
+    }
+
+    /* Wider container and slightly larger base font on laptop/desktop */
+    @media (min-width: 1024px) {
+      .container { max-width: 960px; }
+      /* Slightly increase upper bound for very large screens */
+      html { font-size: clamp(16px, 1.2vw, 22px); } /* Increased for larger screens */
     }
 
     /* Advanced Analysis Box */
@@ -398,11 +464,11 @@
       background: rgba(19, 26, 38, 0.7);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 8px;
-      margin-top: 12px;
+      padding: 12px;
+      margin-top: 16px;
     }
     .advanced-header {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       font-weight: 700;
       margin-bottom: 8px;
       color: var(--text);
@@ -418,7 +484,7 @@
       border: 1px solid var(--border);
       border-radius: 4px;
       color: var(--text);
-      font-size: 0.7rem;
+      font-size: 0.8rem;
       padding: 6px 8px;
     }
     .advanced-btn {
@@ -426,7 +492,7 @@
       color: #fff;
       border: none;
       border-radius: 4px;
-      font-size: 0.7rem;
+      font-size: 0.8rem;
       font-weight: 700;
       padding: 0 12px;
       cursor: pointer;
@@ -442,7 +508,7 @@
     }
     .result-box {
       padding: 6px;
-      font-size: 0.6rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
     }
     .result-box .result-title { 
@@ -466,6 +532,37 @@
       padding: 4px 8px;
       border-radius: 4px;
       cursor: pointer;
+    }
+
+    /* New styles for radio buttons */
+    .radio-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 0;
+      margin-right: 15px;
+      cursor: pointer;
+    }
+
+    /* Spinner styles */
+    .spinner {
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid #fff;
+      border-radius: 50%;
+      width: 1em;
+      height: 1em;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+      display: none; /* Hidden by default */
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -678,14 +775,79 @@
       </div>
     </div>
 
+    <!-- Network Ping & TCP Port Test -->
+    <div class="advanced-card" style="margin-top: 16px;">
+      <div class="advanced-header">Network Ping & TCP Port Test</div>
+      <div class="advanced-input-group" style="margin-bottom: 10px;">
+        <label class="radio-label">
+          <input type="radio" name="test-origin" value="remote" checked onchange="updateNetworkTestUI()"> Test from Server (Remote)
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="test-origin" value="local" onchange="updateNetworkTestUI()"> Test from Client (Local Network)
+        </label>
+      </div>
+      <div class="advanced-input-group">
+        <input type="text" id="network-target-input" class="advanced-input" placeholder="Target (e.g., google.com, 8.8.8.8)">
+        <button id="ping-btn" class="advanced-btn" onclick="triggerNetworkPing()">Ping <span id="ping-spinner" class="spinner"></span></button>
+      </div>
+      <div class="result-box">
+        <div class="result-title">📡 Ping Results</div>
+        <div class="result-content" id="ping-results">Enter a target to ping.</div>
+      </div>
+      <div class="advanced-input-group" style="margin-top: 10px;">
+        <input type="text" id="tcp-ports-input" class="advanced-input" placeholder="Ports (e.g., 80,443 or 20-25)">
+        <button id="tcp-scan-btn" class="advanced-btn" onclick="triggerTcpPortScan()">Scan TCP Ports <span id="tcp-scan-spinner" class="spinner"></span></button>
+      </div>
+      <div class="result-box">
+        <div class="result-title">🔌 TCP Port Scan Results</div>
+        <div class="result-content" id="tcp-scan-results">Enter target and ports to scan.</div>
+      </div>
+    </div>
+
+    <!-- Local Network Device Discovery -->
+    <div class="advanced-card" style="margin-top: 16px;">
+      <div class="advanced-header">Local Network Device Discovery</div>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">
+        This scan is performed from the server's local network.
+      </p>
+      <div class="advanced-input-group">
+        <input type="text" id="local-subnet-input" class="advanced-input" placeholder="Subnet (e.g., 192.168.1.0/24)">
+        <button id="local-scan-btn" class="advanced-btn" onclick="triggerLocalNetworkScan()">Scan Local Network <span id="local-scan-spinner" class="spinner"></span></button>
+      </div>
+      <div class="result-box" style="margin-top: 10px;">
+        <div class="result-title">🏠 Discovered Devices</div>
+        <div class="result-content" id="local-network-results">
+          <p>Enter a subnet (e.g., 192.168.1.0/24) or use the pre-filled value and click Scan. Max subnet size is /23.</p>
+          <table id="local-network-table" style="width:100%; border-collapse: collapse; margin-top: 12px; font-size: 0.7rem; display: none;">
+            <thead>
+              <tr style="background-color: rgba(255,255,255,0.05);">
+                <th style="padding: 4px; text-align: left; border-bottom: 1px solid var(--border);">IP Address</th>
+                <th style="padding: 4px; text-align: left; border-bottom: 1px solid var(--border);">Latency</th>
+                <th style="padding: 4px; text-align: left; border-bottom: 1px solid var(--border);">OS Guess</th>
+                <th style="padding: 4px; text-align: left; border-bottom: 1px solid var(--border);">Open Ports</th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
     let ws;
-    let detectedGatewayIp = "172.18.0.1";
+    let detectedGatewayIp = "192.168.1.1"; // Default common gateway IP for client-side local tests
     let detectedPublicIp = "--";
     let detectedIsp = "Detecting...";
     let detectedCountry = "WAN";
+    let serverGatewayIp = "--"; // New: Server's inferred gateway IP
+    let detectedLocalIp = "--"; // New: Server's local IP
+    let detectedLocalSubnet = "--"; // New: Server's inferred local subnet
+    let detectedDnsServer = "--";
+
+    let currentNetworkTarget = ''; // Store the last target used for ping/tcp scan
 
     function initWebSocket() {
       if (window.location.protocol === 'file:') {
@@ -701,12 +863,16 @@
         try {
           const data = JSON.parse(event.data);
           // The gateway IP might be sent once initially or with probe data
-          if (data.gatewayIp) detectedGatewayIp = data.gatewayIp;
+          if (data.serverGatewayIp) serverGatewayIp = data.serverGatewayIp; // Update server's gateway IP
+          if (data.localIp) detectedLocalIp = data.localIp; // Update server's local IP
+          if (data.localSubnet) detectedLocalSubnet = data.localSubnet; // Update server's local subnet
+          if (data.dnsServer) detectedDnsServer = data.dnsServer;
 
           if (data.dnsServer) {
             const dns1 = document.getElementById('c1-dns-server-ip');
             const dns2 = document.getElementById('c2-dns-server-ip');
             if (dns1) dns1.innerText = `DNS: ${data.dnsServer}`;
+            // Update the detectedDnsServer variable
             if (dns2) dns2.innerText = `DNS: ${data.dnsServer}`;
           }
 
@@ -733,6 +899,105 @@
                 btnEl.disabled = false;
               }
             });
+          }
+
+          if (data.type === 'NETWORK_PING_RESULT') {
+            const el = document.getElementById('ping-results');
+            const btn = document.getElementById('ping-btn');
+            if (el) {
+              if (data.data.success) {
+                el.innerText = `Ping to ${data.data.target}: ${data.data.latency}ms`;
+              } else {
+                el.innerText = `Ping to ${data.data.target} failed: ${data.data.error}`;
+              }
+            }
+            if (btn) btn.disabled = false;
+          }
+
+          if (data.type === 'GATEWAY_PING_RESULT') {
+            const el = document.getElementById('ping-results');
+            const btn = document.getElementById('ping-btn');
+            if (el) {
+              if (data.data.success) {
+                el.innerText = `Local Ping to Gateway (${data.data.target}): ${data.data.latency}ms`;
+              } else {
+                el.innerText = `Local Ping to Gateway (${data.data.target}) failed: ${data.data.error}`;
+              }
+            }
+            if (btn) btn.disabled = false;
+          }
+
+          if (data.type === 'TCP_PORT_SCAN_RESULT_ADVANCED') {
+            const el = document.getElementById('tcp-scan-results');
+            const btn = document.getElementById('tcp-scan-btn');
+            if (el) {
+              if (data.data.status === 'Complete') {
+                const openPorts = data.data.results.map(r => r.port);
+                el.innerText = openPorts.length > 0 ? `Open ports on ${data.data.target}: ${openPorts.join(', ')}` : `No common ports open on ${data.data.target}.`;
+              } else if (data.data.error) {
+                el.innerText = `Error scanning ${data.data.target}: ${data.data.error}`;
+              }
+            }
+            if (btn) btn.disabled = false;
+          }
+
+          if (data.type === 'GATEWAY_PORT_SCAN_RESULT') {
+            const el = document.getElementById('tcp-scan-results');
+            const btn = document.getElementById('tcp-scan-btn');
+            if (el) {
+              // This result is for the local gateway scan
+              if (data.data.status === 'Complete') {
+                const openPorts = data.data.results.map(r => r.port);
+                el.innerText = openPorts.length > 0 ? `Open ports on ${data.data.target}: ${openPorts.join(', ')}` : `No common ports open on ${data.data.target}.`;
+              } else if (data.data.error) {
+                el.innerText = `Error scanning ${data.data.target}: ${data.data.error}`;
+              }
+            }
+            if (btn) btn.disabled = false;
+          }
+
+          if (data.type === 'RATE_LIMIT_EXCEEDED') {
+            alert(`Rate limit exceeded: ${data.data.message}`);
+            // Re-enable buttons and hide spinners for the relevant actions
+            document.getElementById('ping-btn').disabled = false; document.getElementById('ping-spinner').style.display = 'none';
+            document.getElementById('tcp-scan-btn').disabled = false; document.getElementById('tcp-scan-spinner').style.display = 'none';
+            document.getElementById('local-scan-btn').disabled = false; document.getElementById('local-scan-spinner').style.display = 'none';
+          }
+          if (data.type === 'LOCAL_NETWORK_SCAN_PROGRESS') {
+            const resultsEl = document.getElementById('local-network-results');
+            if (resultsEl) {
+              resultsEl.innerHTML = `<p>${data.data.status}</p>`;
+            }
+          }
+
+          if (data.type === 'LOCAL_NETWORK_SCAN_RESULT') {
+            const resultsEl = document.getElementById('local-network-results');
+            const tableBody = document.querySelector('#local-network-table tbody');
+            const btn = document.getElementById('local-scan-btn');
+            if (resultsEl && tableBody) {
+              tableBody.innerHTML = ''; // Clear previous results
+              btn.disabled = false; // Re-enable button
+              spinner.style.display = 'none'; // Hide spinner
+
+              if (data.data.error) {
+                resultsEl.innerHTML = `<p style="color: var(--red);">Error scanning subnet ${data.data.subnet}: ${data.data.error}</p>`;
+              } else if (data.data.devices && data.data.devices.length > 0) {
+                data.data.devices.forEach(device => {
+                  const row = tableBody.insertRow();
+                  row.innerHTML = `
+                    <td style="padding: 4px; border-bottom: 1px solid var(--border);">${device.ip}</td>
+                    <td style="padding: 4px; border-bottom: 1px solid var(--border);">${formatLatency(device.latency)}</td>
+                    <td style="padding: 4px; border-bottom: 1px solid var(--border);">${device.os}</td>
+                    <td style="padding: 4px; border-bottom: 1px solid var(--border);">${device.openPorts.join(', ') || 'N/A'}</td>
+                  `;
+                });
+              } else {
+                resultsEl.innerHTML = `<p>No active devices found on ${data.data.subnet}.</p>`; // Keep this message if no devices
+              }
+              // Only show table if devices were found
+              tableBody.style.display = data.data.devices && data.data.devices.length > 0 ? 'table-row-group' : 'none';
+              resultsEl.innerHTML = `<p>Found ${data.data.devices.length} devices on ${data.data.subnet}:</p>` + resultsEl.innerHTML; // Prepend summary
+            }
           }
 
           if (data.type === 'SUBDOMAIN_RESULT') {
@@ -806,8 +1071,7 @@
           if (data.rank2) updateCaseUI('c2', data.rank2, data.gatewayIp);
         } catch (e) {
           console.error("WS message parse error:", e);
-        }
-      };
+          };
 
       ws.onclose = () => {
         setTimeout(initWebSocket, 3000);
@@ -1002,6 +1266,138 @@
       }
     }
 
+    function triggerNetworkPing() {
+      const inputEl = document.getElementById('network-target-input');
+      const target = inputEl.value.trim();
+      if (!target) {
+        alert('Please enter a target for the ping test.');
+        return;
+      }
+      currentNetworkTarget = target;
+
+      const resultsEl = document.getElementById('ping-results');
+      const btn = document.getElementById('ping-btn');
+      const spinner = document.getElementById('ping-spinner');
+
+      if (resultsEl) resultsEl.innerText = `Pinging ${target}...`;
+      if (document.querySelector('input[name="test-origin"]:checked').value === 'local') resultsEl.innerText = `Pinging Gateway (${target})...`;
+      if (btn) btn.disabled = true;
+      if (spinner) spinner.style.display = 'inline-block';
+      
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RUN_NETWORK_PING', target: target }));
+      } else {
+        if (resultsEl) resultsEl.innerText = 'Connection error. Please refresh.';
+        if (btn) btn.disabled = false;
+        return;
+      }
+      // The actual message sending is now inside the if (ws && ws.readyState === WebSocket.OPEN) block
+
+      const testOrigin = document.querySelector('input[name="test-origin"]:checked').value;
+      const messageType = testOrigin === 'local' ? 'RUN_GATEWAY_PING' : 'RUN_NETWORK_PING';
+      ws.send(JSON.stringify({ type: messageType, target: target }));
+
+    }
+
+    function triggerTcpPortScan() {
+      const targetInputEl = document.getElementById('network-target-input');
+      const portsInputEl = document.getElementById('tcp-ports-input');
+      const target = targetInputEl.value.trim();
+      const ports = portsInputEl.value.trim();
+
+      if (!target) {
+        alert('Please enter a target for the TCP port scan.');
+        return;
+      }
+      if (!ports) {
+        alert('Please enter ports to scan (e.g., 80,443 or 20-25).');
+        return;
+      }
+      currentNetworkTarget = target;
+
+      const resultsEl = document.getElementById('tcp-scan-results');
+      const btn = document.getElementById('tcp-scan-btn');
+      const spinner = document.getElementById('tcp-scan-spinner');
+
+      if (resultsEl) {
+        if (document.querySelector('input[name="test-origin"]:checked').value === 'local') {
+          resultsEl.innerText = `Scanning TCP ports on Gateway (${target})...`;
+        } else {
+          resultsEl.innerText = `Scanning TCP ports on ${target}...`;
+        }
+      }
+      if (spinner) spinner.style.display = 'inline-block';
+      if (btn) btn.disabled = true;
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const testOrigin = document.querySelector('input[name="test-origin"]:checked').value;
+        const messageType = testOrigin === 'local' ? 'RUN_GATEWAY_PORT_SCAN' : 'RUN_TCP_PORT_SCAN';
+        ws.send(JSON.stringify({ type: messageType, target: target, ports: ports }));
+      } else {
+        if (resultsEl) resultsEl.innerText = 'Connection error. Please refresh.';
+        if (spinner) spinner.style.display = 'none';
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // This function was duplicated, keeping the more complete one below.
+    function updateNetworkTestUI() {
+      const testOrigin = document.querySelector('input[name="test-origin"]:checked').value;
+      const targetInputEl = document.getElementById('network-target-input');
+      const portsInputEl = document.getElementById('tcp-ports-input');
+
+      if (testOrigin === 'local') {
+        targetInputEl.value = detectedGatewayIp; // Use the client's assumed gateway IP
+        targetInputEl.readOnly = false; // Allow user to change if their gateway is different
+        targetInputEl.placeholder = "Your Local Gateway IP (e.g., 192.168.1.1)";
+        portsInputEl.placeholder = "Ports (e.g., 80,443 or 20-25) on your Gateway";
+      } else {
+        targetInputEl.value = currentNetworkTarget; // Restore last remote target
+        targetInputEl.readOnly = false;
+        portsInputEl.placeholder = "Ports (e.g., 80,443 or 20-25)";
+      }
+    }
+
+    function triggerLocalNetworkScan() {
+      const inputEl = document.getElementById('local-subnet-input');
+      const subnet = inputEl.value.trim();
+      if (!subnet) {
+        alert('Please enter a subnet (e.g., 192.168.1.0/24) to scan. Max subnet size is /23.');
+        return;
+      }
+
+      // Client-side validation for subnet mask
+      const parts = subnet.split('/');
+      if (parts.length !== 2) {
+        alert('Invalid subnet format. Please use CIDR notation (e.g., 192.168.1.0/24).');
+        return;
+      }
+      const maskNum = parseInt(parts[1], 10);
+      if (isNaN(maskNum) || maskNum < 0 || maskNum > 32) {
+        alert('Invalid CIDR mask. Must be a number between 0 and 32.');
+        return;
+      }
+      if (maskNum < 24) { // Suggest /24 as a friendly default, but allow up to /23
+        alert(`Scanning a /${maskNum} subnet can take a very long time. For a quicker scan, consider a /24 subnet (e.g., 192.168.1.0/24). The maximum allowed is /23.`);
+        if (maskNum < 23) return; // Hard client-side limit to prevent extremely large scans
+      }
+
+      const resultsEl = document.getElementById('local-network-results');
+      const tableBody = document.querySelector('#local-network-table tbody');
+      const btn = document.getElementById('local-scan-btn');
+
+      if (resultsEl) resultsEl.innerHTML = `<p>Scanning local network ${subnet}... This may take a moment.</p>`;
+      if (tableBody) tableBody.innerHTML = ''; // Clear previous results
+      if (btn) btn.disabled = true;
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RUN_LOCAL_NETWORK_SCAN', subnet: subnet }));
+      } else {
+        if (resultsEl) resultsEl.innerHTML = '<p style="color: var(--red);">Connection error. Please refresh.</p>';
+        if (btn) btn.disabled = false;
+      }
+    }
+
     function toggleDropdown() {
       document.getElementById('dropdown-menu').classList.toggle('show');
     }
@@ -1034,6 +1430,10 @@
 
     // Run WAN detection & WS on startup
     initWebSocket();
+
+    // Initialize UI for network tests
+    document.getElementById('local-subnet-input').value = detectedLocalSubnet; // Pre-fill with server's local subnet
+    updateNetworkTestUI();
 
     // Fallback to fetch client-side IP if WS fails to connect after a few seconds
     setTimeout(() => {

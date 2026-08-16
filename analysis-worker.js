@@ -55,6 +55,8 @@ async function getSslInfo(domain) {
   const hostsToCheck = [domain, `www.${domain}`];
   for (const host of hostsToCheck) {
     try {
+      // This inner try/catch ensures that if one host fails (e.g., timeout),
+      // we can still attempt the next one in the list.
       const cert = await new Promise((resolve, reject) => {
         const options = {
           host: host,
@@ -66,7 +68,7 @@ async function getSslInfo(domain) {
         const req = https.request(options, (res) => {
           const certificate = res.socket.getPeerCertificate();
           resolve(certificate);
-          req.destroy();
+          req.destroy(); // End the request as soon as we have the cert
         });
         req.on('error', reject);
         req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
@@ -82,7 +84,8 @@ async function getSslInfo(domain) {
         };
       }
     } catch (e) {
-      // Continue to the next host if one fails
+      // Log the error for debugging, then continue to the next host.
+      console.error(`SSL check for ${host} failed:`, e.message);
     }
   }
   return { found: false, error: 'No SSL certificate found on common hosts.' };

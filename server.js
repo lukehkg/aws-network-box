@@ -2,13 +2,15 @@ const express = require('express');
 const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
-const ping = require('ping');
 const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const net = require('net');
 const dns = require('dns');
 const analysisWorker = require('./analysis-worker.js');
+const apiRouter = require('./api-server.js');
+const networkScanner = require('./network-scanner.js'); // New import
+const { sanitizeHost, probeTarget } = require('./network-utils.js');
 const app = express();
 // Enable reverse proxy support (Crucial for Coolify / Traefik / Nginx)
 app.set('trust proxy', true);
@@ -40,10 +42,10 @@ app.use((req, res, next) => {
     /^https:\/\/[a-zA-Z0-9-]+\.ai-daily\.uk$/.test(origin)
   );
 
+  // When 'Access-Control-Allow-Credentials' is true, the origin cannot be '*'.
+  // We only set the header if the origin is in our allowlist.
   if (isAllowedOrigin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -69,6 +71,9 @@ app.get('/api/ip', (req, res) => {
 // Serve static files
 app.use(express.static(__dirname));
 
+// Mount the new API router
+app.use('/api/v1', apiRouter);
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -82,13 +87,16 @@ let speedCache = {
   status: 'Idle'
 };
 
-function runPortScan(targetIp, broadcast, customRange) {
-  if (!targetIp || ['Unknown', 'Offline'].includes(targetIp)) {
-    broadcast({ type: 'PORT_SCAN_RESULT', publicIp: targetIp, data: { error: 'Invalid WAN IP' } });
+// In-memory store for rate limiting per client IP
+const clientRateLimits = new Map();
+
+function runPortScan(targetToScan, broadcast, customRange, messageType = 'PORT_SCAN_RESULT') {
+  if (!targetToScan || ['Unknown', 'Offline'].includes(targetToScan)) {
+    broadcast({ type: messageType, publicIp: targetToScan, data: { error: 'Invalid target IP/Domain', target: targetToScan } });
     return;
   }
 
-  broadcast({ type: 'PORT_SCAN_RESULT', publicIp: targetIp, data: { status: 'Scanning...' } });
+  broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Scanning...', target: targetToScan } });
 
   let portsToScan = [];
   if (customRange) {
@@ -140,7 +148,7 @@ function runPortScan(targetIp, broadcast, customRange) {
       }
       completed++;
       if (completed === portsToScan.length) {
-        broadcast({ type: 'PORT_SCAN_RESULT', publicIp: targetIp, data: { status: 'Complete', results: results } });
+        broadcast({ type: messageType, publicIp: targetToScan, data: { status: 'Complete', results: results, target: targetToScan } });
       }
     });
     socket.connect(port, targetIp);
@@ -150,30 +158,6 @@ function runPortScan(targetIp, broadcast, customRange) {
   for (let i = 0; i < portsToScan.length; i += BATCH_SIZE) {
     portsToScan.slice(i, i + BATCH_SIZE).forEach(checkPort);
   }
-}
-
-function sanitizeHost(input) {
-  if (!input) return 'bbc.co.uk';
-  let clean = input.trim().toLowerCase();
-  clean = clean.replace(/^https?:\/\//, '');
-  clean = clean.split('/')[0];
-  clean = clean.split('?')[0];
-  clean = clean.split(':')[0];
-  return clean || 'bbc.co.uk';
-}
-
-function getLocalGatewayInfo() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const net of interfaces[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        const parts = net.address.split('.');
-        parts[3] = '1';
-        return { ip: parts.join('.'), interfaceName: name };
-      }
-    }
-  }
-  return { ip: '192.168.1.1', interfaceName: 'LAN' };
 }
 
 function runTraceroute(host) {
@@ -206,6 +190,41 @@ function runTraceroute(host) {
   });
 }
 
+// Rate limiting configuration
+const RATE_LIMIT_CONFIG = {
+  PING: { windowMs: 2000, max: 1, message: 'Too many ping requests. Please wait.' }, // 1 ping per 2 seconds
+  PORT_SCAN: { windowMs: 10000, max: 1, message: 'Too many port scan requests. Please wait.' }, // 1 scan per 10 seconds
+  LOCAL_NETWORK_SCAN: { windowMs: 30000, max: 1, message: 'Too many local network scan requests. Please wait.' }, // 1 scan per 30 seconds
+  ADVANCED_SCAN: { windowMs: 15000, max: 1, message: 'Too many advanced domain scan requests. Please wait.' }, // 1 scan per 15 seconds
+};
+
+// Generic rate limiter for WebSocket messages
+function checkRateLimit(clientIp, actionType, broadcast) {
+  const config = RATE_LIMIT_CONFIG[actionType];
+  if (!config) return true; // No rate limit defined for this action
+
+  const now = Date.now();
+  let clientData = clientRateLimits.get(clientIp);
+
+  if (!clientData) {
+    clientData = {};
+    clientRateLimits.set(clientIp, clientData);
+  }
+
+  const lastRequestTime = clientData[actionType] || 0;
+
+  if (now - lastRequestTime < config.windowMs) {
+    broadcast({ type: 'RATE_LIMIT_EXCEEDED', data: { message: config.message, action: actionType } });
+    return false; // Rate limit exceeded
+  }
+
+  // Update last request time
+  clientData[actionType] = now;
+  // Clean up old client data periodically to prevent memory leak
+  setTimeout(() => { if (clientRateLimits.get(clientIp) === clientData) delete clientData[actionType]; }, config.windowMs * 2);
+  return true; // Request allowed
+}
+
 wss.on('connection', (ws, req) => {
   // Capture client's public WAN IP address on connection
   const clientWanIp = getClientIp(req);
@@ -216,7 +235,7 @@ wss.on('connection', (ws, req) => {
   };
 
   Object.values(targets).forEach(runTraceroute);
-  const gatewayInfo = getLocalGatewayInfo();
+  const localNetworkInfo = networkScanner.getLocalNetworkInfo(); // Use new function
   const dnsServers = dns.getServers();
 
   const broadcastCurrent = (msgObj) => {
@@ -228,7 +247,9 @@ wss.on('connection', (ws, req) => {
   // Fetch IP details and send initial static data once on connection
   broadcastCurrent({
     publicIp: clientWanIp,
-    gatewayIp: gatewayInfo.ip,
+    serverGatewayIp: localNetworkInfo.ip.split('.').slice(0,3).join('.') + '.1', // Server's inferred gateway IP
+    localIp: localNetworkInfo.ip, // New: Server's local IP
+    localSubnet: localNetworkInfo.subnet, // New: Server's inferred local subnet
     wan: { isp: 'Detecting...', country: 'WAN' },
     dnsServer: dnsServers.length > 0 ? dnsServers[0] : null
   });
@@ -236,12 +257,64 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
+
+      // Apply rate limiting based on message type
+      let actionType;
+      switch (data.type) {
+        case 'RUN_NETWORK_PING':
+        case 'RUN_GATEWAY_PING':
+          actionType = 'PING';
+          break;
+        case 'RUN_TCP_PORT_SCAN':
+        case 'RUN_GATEWAY_PORT_SCAN':
+          actionType = 'PORT_SCAN';
+          break;
+        case 'RUN_LOCAL_NETWORK_SCAN':
+          actionType = 'LOCAL_NETWORK_SCAN';
+          break;
+        case 'RUN_ADVANCED_SCAN':
+          actionType = 'ADVANCED_SCAN';
+          break;
+      }
+
+      if (actionType && !checkRateLimit(clientWanIp, actionType, broadcastCurrent)) {
+        return; // Rate limit exceeded, do not process request
+      }
+
       if (data.type === 'SET_TARGET_RANK2' && data.target) {
         const clean = sanitizeHost(data.target);
         targets.rank2 = clean;
         runTraceroute(clean);
       } else if (data.type === 'RUN_PORT_SCAN') {
-        runPortScan(clientWanIp, broadcastCurrent, data.data?.range);
+        runPortScan(clientWanIp, broadcastCurrent, data.data?.range, 'PORT_SCAN_RESULT');
+      } else if (data.type === 'RUN_NETWORK_PING') { // Remote Ping
+        const target = sanitizeHost(data.target);
+        probeTarget(target).then(result => {
+          broadcastCurrent({ type: 'NETWORK_PING_RESULT', data: { ...result, target: target } });
+        });
+      } else if (data.type === 'RUN_GATEWAY_PING') { // Local Ping (to client-provided gateway)
+        const target = sanitizeHost(data.target); // Use target provided by client
+        probeTarget(target).then(result => {
+          broadcastCurrent({ type: 'GATEWAY_PING_RESULT', data: { ...result, target: target } });
+        });
+      } else if (data.type === 'RUN_TCP_PORT_SCAN') { // Remote TCP Scan
+        const target = sanitizeHost(data.target);
+        const ports = data.ports;
+        runPortScan(target, broadcastCurrent, ports, 'TCP_PORT_SCAN_RESULT_ADVANCED');
+      } else if (data.type === 'RUN_GATEWAY_PORT_SCAN') { // Local TCP Scan (to client-provided gateway)
+        const target = sanitizeHost(data.target); // Use target provided by client
+        const ports = data.ports;
+        runPortScan(target, broadcastCurrent, ports, 'GATEWAY_PORT_SCAN_RESULT');
+      } else if (data.type === 'RUN_LOCAL_NETWORK_SCAN') { // New: Local Network Scan
+        const subnet = data.subnet || localNetworkInfo.subnet;
+        networkScanner.scanLocalNetwork(subnet, broadcastCurrent).then(devices => { // Pass broadcastCurrent
+          broadcastCurrent({ type: 'LOCAL_NETWORK_SCAN_RESULT', data: { subnet: subnet, devices: devices } });
+        }).catch(err => {
+          console.error('Local network scan error:', err);
+          broadcastCurrent({ type: 'LOCAL_NETWORK_SCAN_RESULT', data: { error: err.message, subnet: subnet } });
+        });
+      } else if (data.type === 'GET_ANALYSIS_HISTORY') {
+        broadcastCurrent({ type: 'ANALYSIS_HISTORY_DATA', data: analysisHistory });
       } else if (data.type === 'RUN_ADVANCED_SCAN' && data.domain) {
         const cleanDomain = sanitizeHost(data.domain);
         
@@ -268,26 +341,13 @@ wss.on('connection', (ws, req) => {
             }
           })
           .catch(err => {
-            broadcastCurrent({ type: 'ADVANCED_SCAN_ERROR', data: { error: err.message } });
+            broadcastCurrent({ type: 'ADVANCED_SCAN_ERROR', data: { error: err.message, domain: cleanDomain } });
           });
-      } else if (data.type === 'GET_ANALYSIS_HISTORY') {
-        broadcastCurrent({ type: 'ANALYSIS_HISTORY_DATA', data: analysisHistory });
       }
     } catch (e) {
       console.error('Payload error:', e);
     }
   });
-
-  const probeTarget = async (host) => {
-    const cleanHost = sanitizeHost(host);
-    try {
-      const res = await ping.promise.probe(cleanHost, { timeout: 2 });
-      if (res.alive && !isNaN(parseFloat(res.time))) {
-        return parseFloat(res.time);
-      }
-    } catch (e) {}
-    return Math.round((0.8 + Math.random() * 2.5) * 10) / 10;
-  };
 
   const timer = setInterval(async () => {
     try {
@@ -301,22 +361,22 @@ wss.on('connection', (ws, req) => {
       const mode2 = wifiModes[Math.floor(Math.random() * wifiModes.length)];
       const routerProc = (0.1 + Math.random() * 0.3).toFixed(1);
 
-      const p1 = await probeTarget(targets.rank1);
-      const p2 = await probeTarget(targets.rank2);
+      const p1_res = await probeTarget(targets.rank1);
+      const p2_res = await probeTarget(targets.rank2);
 
       broadcastCurrent({
         bandwidth: speedCache,
         rank1: { 
           link1: mode1, 
           b2: routerProc, 
-          b3: p1, 
+          b3: p1_res.success ? p1_res.latency : -1, 
           hops: tracerouteCache[targets.rank1] || 6, 
           target: targets.rank1,
         },
         rank2: { 
           link1: mode2, 
           b2: routerProc, 
-          b3: p2, 
+          b3: p2_res.success ? p2_res.latency : -1, 
           hops: tracerouteCache[targets.rank2] || 8, 
           target: targets.rank2,
         }
