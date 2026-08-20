@@ -1,0 +1,44 @@
+<!-- ========================================== -->
+<!-- NEW FEATURE: Room & CCTV Zone Diagnostics -->
+<!-- ========================================== -->
+<div id="room-diagnostics-module" class="mt-8 p-6 bg-slate-900 text-white rounded-xl shadow-xl border border-slate-800">
+    <h2 class="text-lg font-bold flex items-center gap-2 mb-2">
+        <span>🏠</span> Apartment & CCTV Zone Coverage Checker
+    </h2>
+    <p class="text-xs text-slate-400 mb-4">
+        Select your layout spaces to generate an expert troubleshooting checklist and network report.
+    </p>
+
+    <!-- Layout Checklist Form -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+        <label class="flex items-center gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" name="zone" value="Kitchen" class="rounded bg-slate-900 border-slate-700 text-indigo-500">
+            <span>Kitchen</span>
+        </label>
+        <label class="flex items-center gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" name="zone" value="Bedroom" class="rounded bg-slate-900 border-slate-700 text-indigo-500">
+            <span>Bedrooms</span>
+        </label>
+        <label class="flex items-center gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" name="zone" value="Bathroom" class="rounded bg-slate-900 border-slate-700 text-indigo-500">
+            <span>Bathrooms</span>
+        </label>
+        <label class="flex items-center gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" name="zone" value="CCTV / Outdoor" class="rounded bg-slate-900 border-slate-700 text-indigo-500">
+            <span>CCTV / Garden Area</span>
+        </label>
+    </div>
+
+    <!-- Action Button -->
+    <button id="run-diagnostic-btn" onclick="runRoomDiagnostics()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg text-sm transition shadow-md">
+        Run Zone Latency & Interference Test
+    </button>
+
+    <!-- Results Display Panel -->
+    <div id="diagnostic-results" class="mt-4 hidden bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs space-y-2">
+        <p class="font-semibold text-emerald-400">📊 Expert Diagnostic Report Generated:</p>
+        <div id="diagnostic-output-text" class="text-slate-300 space-y-1">
+            <!-- Dynamic output will populate here -->
+        </div>
+    </div>
+</div>
