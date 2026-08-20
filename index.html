@@ -20,38 +20,34 @@
     }
 
     html {
-      /* Use a fluid root font-size so rem-based font sizes scale across devices.
-         - Minimum: 14px (small phones)
-         - Preferred: grows with viewport width (vw)
-         - Maximum: 20px (large desktops)
-      */
-      font-size: clamp(16px, 1.5vw, 20px); /* Increased base font size */
-      -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape on iOS */
+      font-size: clamp(14px, 1.5vw, 19px);
+      -webkit-text-size-adjust: 100%;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      padding: 10px 4px;
+      padding: 12px 8px;
       background-color: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
     .container {
-      max-width: 680px;
+      max-width: 900px;
       margin: 0 auto;
+      width: 100%;
     }
 
     .header {
       text-align: center;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
 
     .header h1 {
-      margin: 0 0 6px;
-      font-size: 1rem; /* 16px */
+      margin: 0 0 8px;
+      font-size: 1.2rem;
       font-weight: 700;
       letter-spacing: -0.2px;
     }
@@ -60,12 +56,13 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.375rem; /* 6px */
+      gap: 0.375rem;
       background: rgba(19, 26, 38, 0.8);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 0.25rem 0.75rem; /* 4px 12px */
+      padding: 0.25rem 0.75rem;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      flex-wrap: wrap;
     }
 
     .topo-node {
@@ -89,15 +86,16 @@
       background: rgba(19, 26, 38, 0.7);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 8px 6px;
-      margin-top: 8px;
+      padding: 10px 8px;
+      margin-top: 10px;
+      width: 100%;
     }
 
     .case-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       gap: 4px;
       flex-wrap: wrap;
     }
@@ -136,13 +134,13 @@
     .custom-dropdown {
       position: relative;
       user-select: none;
+      margin-top: 4px;
     }
 
-    /* New style to position dropdown in the corner of a box */
     .box .custom-dropdown {
       position: absolute;
-      top: 4px;
-      right: 4px;
+      top: 6px;
+      right: 6px;
     }
 
     .dropdown-trigger {
@@ -172,9 +170,9 @@
     .dropdown-menu {
       display: none;
       position: absolute;
-      bottom: 25px; /* Change top to bottom to make it open upwards */
+      bottom: 28px;
       right: 0;
-      width: 155px;
+      width: 160px;
       background: #0d131f;
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -216,24 +214,29 @@
 
     .pipeline {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: space-between;
-      gap: 2px;
+      gap: 4px;
+      width: 100%;
     }
 
     .box {
-      flex: 1 1 0px;
+      flex: 1 1 0;
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 6px 6px;
+      padding: 8px 6px;
       min-width: 0;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .box.wan-box {
       border-color: rgba(6, 182, 212, 0.4);
       background: rgba(19, 26, 38, 0.95);
+      flex: 1.2 1 0; /* Give slightly more breathing room for WAN metadata */
     }
 
     .box-header-icon {
@@ -262,7 +265,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin-top: 2px;
-      font-weight: 600;
+      font-weight: 650;
     }
 
     .sub.vpn-warning {
@@ -283,7 +286,7 @@
       color: #fff;
       border: none;
       border-radius: 3px;
-      padding: 2px 4px;
+      padding: 2px 6px;
       font-size: 0.7rem;
       font-weight: 700;
       cursor: pointer;
@@ -301,16 +304,17 @@
       color: var(--text-muted);
       margin-top: 3px;
       font-weight: 600;
+      word-break: break-all;
     }
 
     .port-scan-group {
       display: flex;
       gap: 3px;
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
     .port-scan-input {
-      flex-grow: 1;
+      flex: 1;
       width: 100%;
       background: rgba(0,0,0,0.35);
       border: 1px solid var(--border);
@@ -319,6 +323,7 @@
       font-size: 0.7rem;
       padding: 2px 4px;
       font-family: monospace;
+      min-width: 0;
     }
     .port-scan-input::placeholder {
       color: var(--text-muted);
@@ -329,7 +334,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      width: 38px;
+      width: 34px;
       flex-shrink: 0;
       text-align: center;
     }
@@ -345,8 +350,8 @@
       line-height: 1;
     }
 
-    .link-val { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
-    .link-subval { font-size: 0.65rem; font-weight: 700; color: var(--blue); }
+    .link-val { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
+    .link-subval { font-size: 0.6rem; font-weight: 700; color: var(--blue); }
 
     .bg-green { background: rgba(16, 185, 129, 0.25); color: var(--green); border: 1px solid var(--green); }
     .bg-yellow { background: rgba(245, 158, 11, 0.25); color: var(--amber); border: 1px solid var(--amber); }
@@ -359,15 +364,16 @@
       margin-top: 2px;
     }
 
-    .middle-ping-text { color: var(--text-muted); font-size: 0.8rem; font-weight: 700; line-height: 1.1; }
-    .status-good { color: var(--green); font-weight: 800; font-size: 0.8rem; } /* 8.5px */
+    .middle-ping-text { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; line-height: 1.1; }
+    .status-good { color: var(--green); font-weight: 800; font-size: 0.75rem; }
 
     .gauge {
       height: 3px;
       background: rgba(255, 255, 255, 0.08);
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 3px;
+      margin-top: 4px;
+      width: 100%;
     }
 
     .fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
@@ -384,7 +390,7 @@
     }
 
     /* Responsive adjustments for smaller screens */
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .pipeline {
         flex-direction: column;
         align-items: stretch;
@@ -393,17 +399,13 @@
 
       .box {
         padding: 10px 12px;
-        min-height: 70px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+        min-height: auto;
       }
 
       .box-header-icon {
         margin-bottom: 2px;
       }
 
-      /* Position the status row on the right on mobile */
       .box .status-row {
         position: absolute;
         right: 12px;
@@ -412,7 +414,6 @@
         margin-top: 0;
       }
 
-      /* Position the custom-dropdown on the right on mobile */
       .box .custom-dropdown {
         position: absolute;
         right: 12px;
@@ -420,9 +421,8 @@
         transform: translateY(-50%);
       }
 
-      /* If a box has both status-row and custom-dropdown (like box 4), shift the status row left */
       .box:has(.custom-dropdown) .status-row {
-        right: 140px;
+        right: 135px;
       }
 
       .link-connector {
@@ -447,16 +447,8 @@
       }
     }
 
-    @media (max-width: 420px) {
-      /* Keep the clamp minimum but allow some extra spacing on very small phones */
-      html { font-size: clamp(14px, 4vw, 16px); } /* Increased for very small screens */
-    }
-
-    /* Wider container and slightly larger base font on laptop/desktop */
     @media (min-width: 1024px) {
-      .container { max-width: 960px; }
-      /* Slightly increase upper bound for very large screens */
-      html { font-size: clamp(16px, 1.2vw, 22px); } /* Increased for larger screens */
+      .container { max-width: 980px; }
     }
 
     /* Advanced Analysis Box */
@@ -466,6 +458,7 @@
       border-radius: 10px;
       padding: 12px;
       margin-top: 16px;
+      width: 100%;
     }
     .advanced-header {
       font-size: 0.9rem;
@@ -477,9 +470,11 @@
       display: flex;
       gap: 6px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
     .advanced-input {
-      flex-grow: 1;
+      flex: 1;
+      min-width: 180px;
       background: rgba(0,0,0,0.35);
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -494,8 +489,9 @@
       border-radius: 4px;
       font-size: 0.8rem;
       font-weight: 700;
-      padding: 0 12px;
+      padding: 6px 12px;
       cursor: pointer;
+      white-space: nowrap;
     }
     .advanced-btn:disabled {
       background: var(--border);
@@ -503,13 +499,16 @@
     }
     .advanced-results-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 8px;
     }
     .result-box {
       padding: 6px;
       font-size: 0.75rem;
       color: var(--text-muted);
+      background: rgba(0,0,0,0.15);
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.03);
     }
     .result-box .result-title { 
       font-weight: 700; margin-bottom: 4px; color: var(--text);
@@ -534,7 +533,6 @@
       cursor: pointer;
     }
 
-    /* New styles for radio buttons */
     .radio-label {
       display: inline-flex;
       align-items: center;
@@ -544,10 +542,8 @@
       cursor: pointer;
       padding: 4px 0;
       margin-right: 15px;
-      cursor: pointer;
     }
 
-    /* Spinner styles */
     .spinner {
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-top: 2px solid #fff;
@@ -558,16 +554,11 @@
       display: inline-block;
       vertical-align: middle;
       margin-left: 8px;
-      display: none; /* Hidden by default */
+      display: none;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
-    }
-    @keyframes flow {
-      to {
-        stroke-dashoffset: -20;
-      }
     }
   </style>
 </head>
@@ -697,7 +688,7 @@
           <span class="link-val">--</span>
         </div>
 
-        <!-- 3. WAN Detect Box (NEW FEATURE) -->
+        <!-- 3. WAN Detect Box -->
         <div class="box wan-box">
           <div class="box-header-icon">
             <span>🛰️</span>
@@ -754,7 +745,7 @@
       </div>
     </div>
 
-    <!-- NEW: IP/Domain Deep Analysis -->
+    <!-- IP/Domain Deep Analysis -->
     <div class="advanced-card" style="margin-top: 16px;">
       <div class="advanced-header">IP/Domain Deep Analysis</div>
       <div class="advanced-input-group">
@@ -826,24 +817,21 @@
       </div>
     </div>
 
-
   </div>
 
   <script>
     let ws;
-    let detectedGatewayIp = "192.168.1.1"; // Default common gateway IP for client-side local tests
+    let detectedGatewayIp = "192.168.1.1"; 
     let detectedPublicIp = "--";
     let detectedIsp = "Detecting...";
     let detectedCountry = "WAN";
-    let serverGatewayIp = "--"; // New: Server's inferred gateway IP
-    let detectedLocalIp = "--"; // New: Server's local IP
-    let detectedDnsServer = "--"; // Re-add detectedDnsServer
+    let serverGatewayIp = "--"; 
+    let detectedLocalIp = "--"; 
+    let detectedDnsServer = "--"; 
 
     function initWebSocket() {
       if (window.location.protocol === 'file:') {
         console.warn('Running locally via file:// protocol. WebSocket disabled.');
-        console.error('WebSocket connection cannot be established when opening index.html directly from file system. Please run the Node.js server and access via http://localhost:3000 (or your server address).');
-        // fetchClientWanInfo(); // This will be called after a short delay anyway
         return;
       }
 
@@ -853,20 +841,17 @@
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          // The gateway IP might be sent once initially or with probe data
-          if (data.serverGatewayIp) serverGatewayIp = data.serverGatewayIp; // Update server's gateway IP
-          if (data.localIp) detectedLocalIp = data.localIp; // Update server's local IP
-          if (data.publicIp) deepAnalysisTarget = data.publicIp; // Set initial deep analysis target
+          if (data.serverGatewayIp) serverGatewayIp = data.serverGatewayIp; 
+          if (data.localIp) detectedLocalIp = data.localIp; 
+          if (data.publicIp) deepAnalysisTarget = data.publicIp; 
 
           if (data.dnsServer) {
             const dns1 = document.getElementById('c1-dns-server-ip');
             const dns2 = document.getElementById('c2-dns-server-ip');
             if (dns1) dns1.innerText = `DNS: ${data.dnsServer}`;
-            // Update the detectedDnsServer variable
             if (dns2) dns2.innerText = `DNS: ${data.dnsServer}`;
           }
 
-          // WAN Detection payload from WebSocket backend (handles both initial and periodic updates)
           if (data.publicIp) {
             updateWanUI(data.wan || { publicIp: data.publicIp, isp: data.isp, country: data.country });
           }
@@ -902,7 +887,7 @@
               }
             }
             if (btn) btn.disabled = false;
-            document.getElementById('ping-spinner').style.display = 'none'; // Hide spinner
+            document.getElementById('ping-spinner').style.display = 'none'; 
           }
 
           if (data.type === 'GATEWAY_PING_RESULT') {
@@ -916,7 +901,7 @@
               }
             }
             if (btn) btn.disabled = false;
-            document.getElementById('ping-spinner').style.display = 'none'; // Hide spinner
+            document.getElementById('ping-spinner').style.display = 'none'; 
           }
 
           if (data.type === 'TCP_PORT_SCAN_RESULT_ADVANCED') {
@@ -931,7 +916,7 @@
               }
             }
             if (btn) btn.disabled = false;
-            document.getElementById('tcp-scan-spinner').style.display = 'none'; // Hide spinner
+            document.getElementById('tcp-scan-spinner').style.display = 'none'; 
           }
 
           if (data.type === 'GATEWAY_PORT_SCAN_RESULT') {
@@ -946,11 +931,11 @@
               }
             }
             if (btn) btn.disabled = false;
-            document.getElementById('tcp-scan-spinner').style.display = 'none'; // Hide spinner
+            document.getElementById('tcp-scan-spinner').style.display = 'none'; 
           }
 
           if (data.type === 'RATE_LIMIT_EXCEEDED') {
-            alert(`Rate limit exceeded for ${data.data.action}: ${data.data.message}`); // Keep one alert
+            alert(`Rate limit exceeded for ${data.data.action}: ${data.data.message}`); 
 
             const action = data.data.action;
             if (action === 'PING') {
@@ -969,10 +954,9 @@
             }
           }
 
-          // NEW: Deep Analysis Handlers
           if (data.type === 'DEEP_ANALYSIS_STATUS') {
             document.getElementById('deep-analysis-status').innerText = data.data.status;
-            document.getElementById('deep-analysis-output').innerHTML = ''; // Clear previous output
+            document.getElementById('deep-analysis-output').innerHTML = ''; 
           }
           if (data.type === 'DEEP_ANALYSIS_RESULT') {
             const btn = document.getElementById('deep-analysis-btn');
@@ -982,66 +966,53 @@
 
             if (btn) btn.disabled = false;
             if (spinner) spinner.style.display = 'none';
-            if (statusEl) statusEl.innerText = ''; // Clear status
-            if (data.data.error) {
-              outputEl.innerHTML = `<p style="color: var(--red);">Overall analysis failed: ${data.data.error}</p>`;
-            } else {
-              // This will be filled by individual API results
-            }
+            if (statusEl) statusEl.innerText = ''; 
           }
           if (data.type === 'DEEP_ANALYSIS_COMPLETE') {
             document.getElementById('deep-analysis-status').innerText = 'Analysis Complete.';
+            const outputEl = document.getElementById('deep-analysis-output');
 
             if (data.data.error) {
               outputEl.innerHTML = `<p style="color: var(--red);">Error: ${data.data.error}</p>`;
             } else {
               let outputHtml = `<h3>Analysis for: ${data.data.target}</h3>`;
               
-              // GeoIP Info
               if (data.data.GeoIP && data.data.GeoIP.success) {
                 const geo = data.data.GeoIP.data;
                 outputHtml += `<h4>🌍 GeoIP & ISP (ip-api.com)</h4>`;
                 outputHtml += `<p>IP: ${geo.query}<br>Country: ${geo.country} (${geo.countryCode})<br>City: ${geo.city}, ${geo.regionName}<br>ISP: ${geo.isp} (AS${geo.as})</p>`;
               } else { outputHtml += `<h4>🌍 GeoIP & ISP (ip-api.com)</h4><p style="color: var(--red);">Failed: ${data.data.GeoIP?.error || 'Unknown error'}</p>`; }
 
-              // Cloudflare Trace
               if (data.data.CloudflareTrace && data.data.CloudflareTrace.success) {
                 const cf = data.data.CloudflareTrace.data;
                 outputHtml += `<h4>☁️ Cloudflare Trace (1.1.1.1)</h4>`;
                 outputHtml += `<p>IP: ${cf.ip}<br>Location: ${cf.loc} (colo: ${cf.colo})<br>TLS: ${cf.tls}<br>HTTP: ${cf.http}</p>`;
               } else { outputHtml += `<h4>☁️ Cloudflare Trace (1.1.1.1)</h4><p style="color: var(--red);">Failed: ${data.data.CloudflareTrace?.error || 'Unknown error'}</p>`; }
 
-              // DNS A Record
               if (data.data.DNSARecord && data.data.DNSARecord.success && data.data.DNSARecord.data.Answer) {
                 outputHtml += `<h4>DNS A Record (Google DoH)</h4><p>${data.data.DNSARecord.data.Answer.map(a => a.data).join(', ')}</p>`;
               } else { outputHtml += `<h4>DNS A Record (Google DoH)</h4><p style="color: var(--red);">Failed: ${data.data.DNSARecord?.error || 'No A records found'}</p>`; }
 
-              // DNS MX Record
               if (data.data.DNSMXRecord && data.data.DNSMXRecord.success && data.data.DNSMXRecord.data.Answer) {
                 outputHtml += `<h4>DNS MX Record (Google DoH)</h4><p>${data.data.DNSMXRecord.data.Answer.map(mx => `${mx.priority} ${mx.data}`).join('<br>')}</p>`;
               } else { outputHtml += `<h4>DNS MX Record (Google DoH)</h4><p style="color: var(--red);">Failed: ${data.data.DNSMXRecord?.error || 'No MX records found'}</p>`; }
 
-              // Remote Ping (check-host.net)
               if (data.data.RemotePing && data.data.RemotePing.success && data.data.RemotePing.data.nodes) {
                 outputHtml += `<h4>🌐 Remote Ping (check-host.net)</h4><p>${Object.keys(data.data.RemotePing.data.nodes).map(node => `${node}: ${data.data.RemotePing.data.nodes[node][0][0]}ms`).join('<br>')}</p>`;
               } else { outputHtml += `<h4>🌐 Remote Ping (check-host.net)</h4><p style="color: var(--red);">Failed: ${data.data.RemotePing?.error || 'Unknown error'}</p>`; }
 
-              // Remote TCP Port 80 (check-host.net)
               if (data.data.RemoteTCPPort80 && data.data.RemoteTCPPort80.success && data.data.RemoteTCPPort80.data.nodes) {
                 outputHtml += `<h4>🔌 Remote TCP Port 80 (check-host.net)</h4><p>${Object.keys(data.data.RemoteTCPPort80.data.nodes).map(node => `${node}: ${data.data.RemoteTCPPort80.data.nodes[node][0][0] === 'OK' ? 'Open' : 'Closed'}`).join('<br>')}</p>`;
               } else { outputHtml += `<h4>🔌 Remote TCP Port 80 (check-host.net)</h4><p style="color: var(--red);">Failed: ${data.data.RemoteTCPPort80?.error || 'Unknown error'}</p>`; }
 
-              // Remote HTTP Check (check-host.net)
               if (data.data.RemoteHTTPCheck && data.data.RemoteHTTPCheck.success && data.data.RemoteHTTPCheck.data.nodes) {
                 outputHtml += `<h4>🌐 Remote HTTP Check (check-host.net)</h4><p>${Object.keys(data.data.RemoteHTTPCheck.data.nodes).map(node => `${node}: ${data.data.RemoteHTTPCheck.data.nodes[node][0][0]}`).join('<br>')}</p>`;
               } else { outputHtml += `<h4>🌐 Remote HTTP Check (check-host.net)</h4><p style="color: var(--red);">Failed: ${data.data.RemoteHTTPCheck?.error || 'Unknown error'}</p>`; }
 
-              // HackerTarget Traceroute
               if (data.data.HackerTargetTraceroute && data.data.HackerTargetTraceroute.success) {
                 outputHtml += `<h4>🗺️ HackerTarget Traceroute</h4><pre>${data.data.HackerTargetTraceroute.data}</pre>`;
               } else { outputHtml += `<h4>🗺️ HackerTarget Traceroute</h4><p style="color: var(--red);">Failed: ${data.data.HackerTargetTraceroute?.error || 'Unknown error'}</p>`; }
 
-              // HackerTarget Reverse IP
               if (data.data.HackerTargetReverseIP && data.data.HackerTargetReverseIP.success && data.data.HackerTargetReverseIP.data.length > 0) {
                 outputHtml += `<h4>↩️ HackerTarget Reverse IP</h4><p>${data.data.HackerTargetReverseIP.data.join('<br>')}</p>`;
               } else { outputHtml += `<h4>↩️ HackerTarget Reverse IP</h4><p style="color: var(--red);">Failed: ${data.data.HackerTargetReverseIP?.error || 'No domains found'}</p>`; }
@@ -1056,7 +1027,6 @@
               alert("No analysis history to export.");
               return;
             }
-            // Convert the array of objects to a JSON string
             const jsonString = JSON.stringify(historyArray, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement("a");
@@ -1064,14 +1034,14 @@
             link.setAttribute("href", url);
             link.setAttribute("download", "analysis_history.json");
             link.click();
-            URL.revokeObjectURL(url); // Clean up
+            URL.revokeObjectURL(url); 
           }
 
-          if (data.rank1) updateCaseUI('c1', data.rank1, serverGatewayIp); // Use serverGatewayIp
-          if (data.rank2) updateCaseUI('c2', data.rank2, serverGatewayIp); // Use serverGatewayIp
+          if (data.rank1) updateCaseUI('c1', data.rank1, serverGatewayIp); 
+          if (data.rank2) updateCaseUI('c2', data.rank2, serverGatewayIp); 
         } catch (e) {
           console.error("WS message parse error:", e);
-        } // This brace closes the try-catch block
+        } 
       };
 
       ws.onclose = () => {
@@ -1079,7 +1049,6 @@
       };
     }
 
-    // Client-side fallback to automatically detect Public IP & ISP if backend WS hasn't pushed WAN info
     async function fetchClientWanInfo() {
       try {
         const res = await fetch('https://ipapi.co/json/');
@@ -1091,7 +1060,6 @@
           country: data.country_code || 'WAN'
         });
       } catch (e) {
-        // Fallback endpoint if ipapi is rate limited
         try {
           const res2 = await fetch('https://api.ipify.org?format=json');
           const data2 = await res2.json();
@@ -1150,7 +1118,6 @@
       }
       if (l1Val) l1Val.innerText = formatLatency(caseData.link1?.ping);
 
-      // VPN/Proxy Heuristic Check
       const localStatus = document.getElementById(`${caseKey}-local-status`);
       if (localStatus) localStatus.innerHTML = `<span class="status-good">Good</span>`;
 
@@ -1206,7 +1173,7 @@
       }
     }
 
-    function downloadHistoryJSON() { // Original function
+    function downloadHistoryJSON() { 
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'GET_ANALYSIS_HISTORY' }));
       } else {
@@ -1237,7 +1204,7 @@
       }
     }
 
-    function inferEmailProvider(mxRecordsText) { // Original function
+    function inferEmailProvider(mxRecordsText) { 
       if (mxRecordsText.includes('google.com') || mxRecordsText.includes('googlemail.com')) return 'Google Workspace';
       if (mxRecordsText.includes('outlook.com') || mxRecordsText.includes('office365.com')) return 'Microsoft 365';
       if (mxRecordsText.includes('zoho.com')) return 'Zoho Mail';
@@ -1245,7 +1212,7 @@
       return 'Unknown / Self-hosted';
     }
 
-    function triggerPortScan(caseKey) { // Original function
+    function triggerPortScan(caseKey) { 
       const btn = document.querySelector(`#card-${caseKey} .btn-portscan`);
       const resultsEl = document.getElementById(`${caseKey}-port-results`);
       const inputEl = document.getElementById(`${caseKey}-port-input`);
@@ -1268,7 +1235,6 @@
     }
 
     function triggerNetworkPing() {
-      console.log('triggerNetworkPing called');
       const inputEl = document.getElementById('network-target-input');
       const target = inputEl.value.trim();
       if (!target) {
@@ -1285,7 +1251,7 @@
       if (btn) btn.disabled = true;
       if (spinner) spinner.style.display = 'inline-block';
       
-      if (!(ws && ws.readyState === WebSocket.OPEN)) { // Check if WS is NOT open
+      if (!(ws && ws.readyState === WebSocket.OPEN)) { 
         if (resultsEl) resultsEl.innerText = 'Connection error. Please refresh.';
         if (btn) btn.disabled = false;
         if (spinner) spinner.style.display = 'none';
@@ -1297,7 +1263,6 @@
     }
 
     function triggerTcpPortScan() {
-      console.log('triggerTcpPortScan called');
       const targetInputEl = document.getElementById('network-target-input');
       const portsInputEl = document.getElementById('tcp-ports-input');
       const target = targetInputEl.value.trim();
@@ -1331,7 +1296,6 @@
       }
     }
 
-    // NEW: Deep Analysis Trigger
     function triggerDeepAnalysis() {
       const inputEl = document.getElementById('deep-analysis-target-input');
       const target = inputEl.value.trim();
@@ -1344,7 +1308,7 @@
       const spinner = document.getElementById('deep-analysis-spinner');
       if (btn) btn.disabled = true;
       if (spinner) spinner.style.display = 'inline-block';
-      document.getElementById('deep-analysis-output').innerHTML = ''; // Clear previous results
+      document.getElementById('deep-analysis-output').innerHTML = ''; 
       document.getElementById('deep-analysis-status').innerText = 'Initiating analysis...';
 
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1384,18 +1348,13 @@
       }
     });
 
-    // Run WAN detection & WS on startup
-    // This will also trigger the initial update of the UI
     initWebSocket();
-    document.getElementById('deep-analysis-target-input').value = detectedPublicIp; // Pre-fill deep analysis with client WAN IP
-
+    document.getElementById('deep-analysis-target-input').value = detectedPublicIp; 
   </script>
 
-<!-- ========================================== -->
 <!-- ENTERPRISE GEO-TARGETED SURVEY COCKPIT -->
-<!-- ========================================== -->
 <div id="room-diagnostics-module" style="margin-top: 2rem; padding: 1.5rem; background-color: #0b0f19; color: #f8fafc; border-radius: 0.75rem; border: 1px solid #1e293b; font-family: inherit; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.75rem; flex-wrap: wrap; gap: 8px;">
         <div>
             <h2 style="font-size: 1.125rem; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 0.5rem; color: #38bdf8;">
                 <span>🌐</span> Enterprise Geo-Targeted Survey Cockpit
@@ -1409,9 +1368,8 @@
         </div>
     </div>
 
-    <!-- Phase 1: Setup Quantities & Target Destination -->
     <div id="survey-setup-view">
-        <div id="geoip-banner" style="background: #111827; border: 1px solid #1f2937; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
+        <div id="geoip-banner" style="background: #111827; border: 1px solid #1f2937; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div>
                 <span style="color: #94a3b8; display: block; font-size: 0.7rem;">DETECTED CLIENT NETWORK (WHOIS)</span>
                 <strong id="detected-isp-info" style="color: #38bdf8;">Scanning WAN & GeoIP location...</strong>
@@ -1419,7 +1377,7 @@
             <span style="font-size: 1.25rem;">📍</span>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1rem; font-size: 0.875rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; font-size: 0.875rem;">
             <div style="background-color: #111827; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #1f2937;">
                 <label style="display: block; color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Kitchens</label>
                 <input type="number" id="qty-kitchen" min="0" value="1" style="width: 100%; background: #030712; color: white; border: 1px solid #374151; padding: 0.4rem; border-radius: 0.25rem;">
@@ -1448,10 +1406,8 @@
         </button>
     </div>
 
-    <!-- Phase 2 & 3: Persistent Split Layout Workspace -->
-    <div id="survey-active-view" style="display: none; grid-template-columns: 280px 1fr; gap: 1rem;">
+    <div id="survey-active-view" style="display: none; grid-template-columns: minmax(240px, 280px) 1fr; gap: 1rem;">
         
-        <!-- Left Sidebar: Permanent Live Progress & Results Queue -->
         <div style="background: #030712; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 1rem; display: flex; flex-direction: column;">
             <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.75rem; font-weight: bold;">
                 Layout Audit Queue
@@ -1459,28 +1415,24 @@
             <div id="room-checklist-container" style="display: flex; flex-direction: column; gap: 0.4rem; overflow-y: auto; max-height: 320px;"></div>
         </div>
 
-        <!-- Right Main Panel: Switches between Active Test Console & Final Metrics Report -->
-        <div style="background: #030712; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+        <div style="background: #030712; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
             
-            <!-- Active Test Mode Content -->
             <div id="active-test-container">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <span id="survey-progress-indicator" style="font-size: 0.7rem; color: #38bdf8; font-weight: bold; text-transform: uppercase;">Step 1 of 5</span>
                     <span id="engine-status-badge" style="font-size: 0.65rem; background: #1e293b; padding: 0.15rem 0.5rem; border-radius: 0.25rem; color: #38bdf8;">READY</span>
                 </div>
-                <h3 id="current-target-room" style="font-size: 1.15rem; font-weight: bold; color: #f8fafc; margin: 0 0 0.25rem 0;">Target: Kitchen</h3>
+                <h3 id="current-target-room" style="font-size: 1.15rem; font-weight: bold; color: #f8fafc; margin: 0 0 0.25rem 0; word-break: break-all;">Target: Kitchen</h3>
                 <p style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 1rem;">Walk to this physical location, then execute live test.</p>
 
-                <!-- Engine Telemetry Box -->
                 <div style="background: #090d16; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.85rem; margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #64748b; margin-bottom: 0.3rem;">
                         <span id="active-target-display">TARGET: GATEWAY</span>
                         <span id="engine-timer">0.0s</span>
                     </div>
-                    <div id="engine-console-output" style="font-family: monospace; font-size: 0.75rem; color: #38bdf8; min-height: 40px; display: flex; align-items: center;">
+                    <div id="engine-console-output" style="font-family: monospace; font-size: 0.75rem; color: #38bdf8; min-height: 40px; display: flex; align-items: center; word-break: break-all;">
                         Console armed. Standing by for execution...
                     </div>
-                    <!-- Progress Bar -->
                     <div style="width: 100%; background: #1f2937; height: 5px; border-radius: 3px; margin-top: 0.75rem; overflow: hidden;">
                         <div id="engine-progress-bar" style="width: 0%; height: 100%; background: #38bdf8; transition: width 0.2s ease;"></div>
                     </div>
@@ -1491,9 +1443,8 @@
                 </button>
             </div>
 
-            <!-- Final Metrics Report Dashboard (Replaces Right Panel on Completion) -->
             <div id="final-report-container" style="display: none; font-size: 0.8rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; padding-bottom: 0.6rem; margin-bottom: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; padding-bottom: 0.6rem; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 8px;">
                     <div>
                         <h3 style="margin: 0; color: #34d399; font-size: 0.95rem;">📊 Audit Complete: Performance Summary</h3>
                         <p style="margin: 0.1rem 0 0 0; color: #94a3b8; font-size: 0.65rem;" id="report-meta-timestamp">Timestamp: -</p>
@@ -1503,10 +1454,7 @@
                     </button>
                 </div>
 
-                <!-- Aggregated Metrics Matrix Cards -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;" id="metrics-cards-grid">
-                    <!-- Populated dynamically -->
-                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem;" id="metrics-cards-grid"></div>
 
                 <div id="survey-output-text" style="color: #cbd5e1; line-height: 1.5; font-size: 0.75rem; max-height: 160px; overflow-y: auto; margin-bottom: 0.75rem;"></div>
 
@@ -1590,7 +1538,6 @@ function updateEngineUI() {
     document.getElementById('engine-status-badge').textContent = 'READY';
     document.getElementById('engine-status-badge').style.color = '#38bdf8';
     
-    // Fixed string spacing bug here:
     document.getElementById('engine-console-output').innerHTML = `Target locked. Stand in <strong>${currentItem.name}</strong> and run diagnostic.`;
     document.getElementById('engine-console-output').style.color = '#38bdf8';
     document.getElementById('engine-progress-bar').style.width = '0%';
@@ -1627,9 +1574,9 @@ function renderChecklistSidebar() {
         }
 
         html += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: ${bgStyle}; border: 1px solid ${borderColor}; padding: 0.5rem 0.7rem; border-radius: 0.35rem; font-size: 0.75rem;">
-                <span style="color: ${index === currentStepIndex ? '#f8fafc' : textColor}; font-weight: ${index === currentStepIndex ? 'bold' : 'normal'};">${item.name}</span>
-                <span style="color: ${textColor}; font-size: 0.65rem;">${badgeText}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; background: ${bgStyle}; border: 1px solid ${borderColor}; padding: 0.5rem 0.7rem; border-radius: 0.35rem; font-size: 0.75rem; gap: 4px;">
+                <span style="color: ${index === currentStepIndex ? '#f8fafc' : textColor}; font-weight: ${index === currentStepIndex ? 'bold' : 'normal'}; word-break: break-all;">${item.name}</span>
+                <span style="color: ${textColor}; font-size: 0.65rem; white-space: nowrap;">${badgeText}</span>
             </div>
         `;
     });
@@ -1693,29 +1640,25 @@ async function runEngineDiagnostic() {
         if (currentStepIndex < surveyQueue.length) {
             updateEngineUI();
         } else {
-            renderChecklistSidebar(); // Final refresh of queue sidebar
+            renderChecklistSidebar(); 
             showFinalSurveyReport();
         }
     }, 1200);
 }
 
 function showFinalSurveyReport() {
-    // Hide active test form, reveal right-hand statistics dashboard
     document.getElementById('active-test-container').style.display = 'none';
     document.getElementById('final-report-container').style.display = 'block';
     document.getElementById('report-meta-timestamp').textContent = `Generated: ${new Date().toLocaleTimeString()}`;
 
-    // Calculate Average, Max, Min Speeds and Latencies
     let speeds = surveyResults.map(r => r.speed);
     let pings = surveyResults.map(r => r.ping);
 
     let avgSpeed = Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length);
     let maxSpeed = Math.max(...speeds);
     let minSpeed = Math.min(...speeds);
-
     let avgPing = Math.round(pings.reduce((a, b) => a + b, 0) / pings.length);
 
-    // Render Stats Matrix Cards
     document.getElementById('metrics-cards-grid').innerHTML = `
         <div style="background: #111827; padding: 0.5rem; border-radius: 0.35rem; border: 1px solid #1f2937; text-align: center;">
             <span style="font-size: 0.6rem; color: #94a3b8; display: block;">AVG SPEED</span>
@@ -1740,9 +1683,9 @@ function showFinalSurveyReport() {
         if (res.speed < 20) statusColor = '#f87171';
 
         reportHtml += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 0.4rem 0.6rem; margin-bottom: 0.3rem; border-radius: 0.3rem; border-left: 2px solid ${statusColor};">
-                <span>${res.room}</span>
-                <span style="color: ${statusColor}; font-weight: 500;">${res.speed} Mbps (${res.ping}ms)</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 0.4rem 0.6rem; margin-bottom: 0.3rem; border-radius: 0.3rem; border-left: 2px solid ${statusColor}; gap: 4px;">
+                <span style="word-break: break-all;">${res.room}</span>
+                <span style="color: ${statusColor}; font-weight: 500; white-space: nowrap;">${res.speed} Mbps (${res.ping}ms)</span>
             </div>
         `;
     });
@@ -1763,8 +1706,4 @@ function resetSurvey() {
 }
 </script>
 </body>
-
-
 </html>
-
-
